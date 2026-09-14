@@ -51,3 +51,16 @@ no se vio porque la base ya estaba migrada. Hoy solo lo cubre el CI.
 
 **Qué haría falta:** una base desechable propia para la verificación, sin tocar el volumen de
 desarrollo.
+
+## Dos envíos simultáneos de la misma persona
+
+**Qué:** impedir que dos peticiones que llegan en el mismo instante con el mismo teléfono o
+email creen dos leads.
+
+**Por qué no ahora:** `LeadRegistrar` busca y luego guarda dentro de una transacción, pero la
+búsqueda no bloquea: dos transacciones concurrentes pueden no verse y crear un lead cada una.
+Requiere que lleguen a la vez, y la `Idempotency-Key` ya cubre el caso más común (el mismo
+emisor reintentando).
+
+**Qué haría falta:** un bloqueo consultivo de PostgreSQL (`pg_advisory_xact_lock`) sobre el
+teléfono y el email normalizados antes de buscar, o índices únicos y reintentar ante la violación.
