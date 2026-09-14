@@ -1,0 +1,56 @@
+# Servicios de apoyo. La app de Laravel corre en local (composer run dev).
+# Compose lee el mismo .env que Laravel: las credenciales tienen una sola fuente.
+name: reformas-leads
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: reformas-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-reformas}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-reformas}
+      POSTGRES_DB: ${DB_DATABASE:-reformas}
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${DB_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${DB_USERNAME:-reformas} -d ${DB_DATABASE:-reformas}
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  n8n:
+    image: n8nio/n8n:2.38.7
+    container_name: reformas-n8n
+    restart: unless-stopped
+    environment:
+      # Sin valor por defecto a proposito: cifra las credenciales guardadas en n8n.
+      # Si cambia, las credenciales existentes dejan de poder leerse.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?falta N8N_ENCRYPTION_KEY en .env}
+      N8N_PORT: 5678
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${N8N_TIMEZONE:-Europe/Madrid}
+      TZ: ${N8N_TIMEZONE:-Europe/Madrid}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${N8N_PORT:-5678}:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://localhost:5678/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  pgdata:
+  n8n_data:
