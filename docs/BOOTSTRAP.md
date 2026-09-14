@@ -739,3 +739,36 @@ que salta de más se acaba desactivando.**
 
 | Suite end-to-end tras los arreglos | 3 pruebas en verde (17,6 s) |
 | ---------------------------------- | --------------------------- |
+
+### 5. Segunda corrida: el healthcheck de la cola exigía tablas
+
+La segunda corrida volvió a fallar en **Start services**, esta vez con
+`container reformas-queue is unhealthy`. El trabajo de calidad sí pasó, lo que confirmó en un
+runner limpio el arreglo de `withoutVite()` que no se había podido verificar en local.
+
+Los logs de Docker del artefacto lo explicaban:
+`ERROR: relation "failed_jobs" does not exist`. **`queue:failed` consulta una tabla, y en el CI
+la base nace vacía**: el workflow migra _después_ de `up --wait`, así que la migración nunca
+llegaba a correr. En local la base ya estaba migrada. Cualquiera que clonara el repositorio y
+siguiera el README habría chocado con lo mismo.
+
+Candidatos probados sobre una **base vacía creada a propósito** y con la base apagada:
+
+| Comando                        | Base vacía                   | Base apagada | Base real migrada             |
+| ------------------------------ | ---------------------------- | ------------ | ----------------------------- |
+| `queue:failed`                 | **exit 1** (reproduce el CI) | —            | exit 0                        |
+| `db:show`                      | exit 0                       | exit 1       | **exit 1** en 3 de 3 intentos |
+| `db:monitor --databases=pgsql` | exit 0                       | exit 1       | exit 0 en 3 de 3              |
+
+**`db:show` habría sido otra trampa.** Pasa con la base vacía y falla con la migrada:
+`The "intl" PHP extension is required to use the [format] method`. Formatea el tamaño de
+las tablas con `Number::format`, que exige `intl`, y la imagen no la trae. Con la base vacía
+no había tablas que formatear. **Queda anotado un hueco para más adelante:** `Number::format`
+no funciona dentro del contenedor.
+
+Arreglo: `db:monitor --databases=pgsql`, que comprueba la conexión sin consultar tablas.
+
+**Verificado reproduciendo el orden exacto del CI**, sin tocar la base de desarrollo: base
+vacía nueva, `.env` apuntando a ella (con respaldo), `up --wait` de `app` y `queue` →
+**exit 0 con 0 tablas**; `migrate` → 10 tablas; `.env` restaurado con el mismo hash y base de
+prueba eliminada.

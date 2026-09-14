@@ -50,10 +50,11 @@ services:
         restart: unless-stopped
         # listen y no work: recarga el código en cada job, que es lo que se quiere al desarrollar.
         command: ['php', 'artisan', 'queue:listen', '--tries=1', '--timeout=0']
-        # Consulta failed_jobs: comprueba que el worker alcanza la base, que es donde vive la cola.
+        # Comprueba que el worker alcanza la base, que es donde vive la cola. No consulta tablas:
+        # con la base recién creada y sin migrar, el contenedor tiene que poder quedar healthy.
         # Sin healthcheck, `docker compose up --wait` falla aunque todo funcione.
         healthcheck:
-            test: ['CMD', 'php', 'artisan', 'queue:failed']
+            test: ['CMD', 'php', 'artisan', 'db:monitor', '--databases=pgsql']
             interval: 30s
             timeout: 5s
             retries: 3
