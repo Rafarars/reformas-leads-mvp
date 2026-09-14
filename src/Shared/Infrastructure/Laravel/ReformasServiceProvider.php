@@ -3,6 +3,10 @@
 namespace Reformas\Shared\Infrastructure\Laravel;
 
 use Illuminate\Support\ServiceProvider;
+use Reformas\Integrations\ApiClient\Domain\ApiClientRepository;
+use Reformas\Integrations\ApiClient\Domain\ApiKeyGenerator;
+use Reformas\Integrations\ApiClient\Infrastructure\Persistence\Eloquent\EloquentApiClientRepository;
+use Reformas\Integrations\ApiClient\Infrastructure\RandomApiKeyGenerator;
 use Reformas\Leads\Lead\Domain\LeadRepository;
 use Reformas\Leads\Lead\Infrastructure\Persistence\Eloquent\EloquentLeadRepository;
 use Reformas\Shared\Domain\Clock;
@@ -21,5 +25,7 @@ final class ReformasServiceProvider extends ServiceProvider
         UuidGenerator::class => LaravelUuidGenerator::class,
         Transaction::class => LaravelTransaction::class,
         LeadRepository::class => EloquentLeadRepository::class,
+        ApiClientRepository::class => EloquentApiClientRepository::class,
+        ApiKeyGenerator::class => RandomApiKeyGenerator::class,
     ];
 }
