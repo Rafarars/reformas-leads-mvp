@@ -90,19 +90,20 @@ es asíncrono y reintentable.
 
 Cada pieza responde una pregunta concreta de entrevista.
 
-| Pieza | Qué resuelve |
-|---|---|
-| Persistir antes de procesar | El lead existe aunque todo lo demás falle |
-| Outbox en la misma transacción | El mensaje a enviar nunca se pierde por una caída |
-| Reintentos con backoff exponencial + jitter | Sobrevive caídas largas sin tumbar la API al revivir |
-| Clave de idempotencia por mensaje | At-least-once en el envío, exactly-once en el efecto |
-| Circuit breaker | Deja de golpear lo que está caído; permite recovery limpio |
-| DLQ + alerta | Lo irrecuperable se aparta con su error, nunca se descarta |
-| Replay desde el panel | Reprocesar a mano tras arreglar la causa raíz |
+| Pieza                                       | Qué resuelve                                               |
+| ------------------------------------------- | ---------------------------------------------------------- |
+| Persistir antes de procesar                 | El lead existe aunque todo lo demás falle                  |
+| Outbox en la misma transacción              | El mensaje a enviar nunca se pierde por una caída          |
+| Reintentos con backoff exponencial + jitter | Sobrevive caídas largas sin tumbar la API al revivir       |
+| Clave de idempotencia por mensaje           | At-least-once en el envío, exactly-once en el efecto       |
+| Circuit breaker                             | Deja de golpear lo que está caído; permite recovery limpio |
+| DLQ + alerta                                | Lo irrecuperable se aparta con su error, nunca se descarta |
+| Replay desde el panel                       | Reprocesar a mano tras arreglar la causa raíz              |
 
 **Dedupe en dos niveles:**
-- *Entrada:* `fingerprint` sobre teléfono+email normalizados. Si existe, no se crea otro lead: se actualiza y se registra el segundo contacto.
-- *Salida:* `idempotency_key` por mensaje del outbox. El reintento no produce doble notificación.
+
+- _Entrada:_ `fingerprint` sobre teléfono+email normalizados. Si existe, no se crea otro lead: se actualiza y se registra el segundo contacto.
+- _Salida:_ `idempotency_key` por mensaje del outbox. El reintento no produce doble notificación.
 
 ## 7. La IA
 

@@ -28,7 +28,7 @@ export default function Dashboard({
                         return (
                             <div
                                 key={key}
-                                data-testid={`status-${key}`}
+                                data-test={`status-${key}`}
                                 data-state={up ? 'up' : 'down'}
                                 className="border-sidebar-border/70 dark:border-sidebar-border flex items-center justify-between rounded-xl border p-4"
                             >

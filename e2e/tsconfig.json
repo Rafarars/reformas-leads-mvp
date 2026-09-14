@@ -1,0 +1,13 @@
+{
+    // Las pruebas end-to-end no están en el tsconfig de la raíz (solo resources/js).
+    "compilerOptions": {
+        "target": "ES2023",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "noEmit": true,
+        "skipLibCheck": true,
+        "types": ["node"]
+    },
+    "include": ["./**/*.ts", "../playwright.config.ts"]
+}

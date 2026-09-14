@@ -30,12 +30,12 @@ se borró la carpeta, se instaló y se devolvió la spec comprobando el mismo ha
 
 ### Lo que se encontró al leer la salida
 
-| Esperado | Obtenido | Consecuencia |
-|---|---|---|
-| Laravel 12 | **Laravel 13.31** | El instalador toma la última estable. No se fija versión |
-| PostgreSQL (`--database=pgsql`) | **SQLite** en `.env` y `.env.example` | El `post-create-project-cmd` del starter kit crea `database.sqlite` y migra ahí, ignorando la opción |
-| Solo npm | `package-lock.json` **y** `pnpm-workspace.yaml` | El archivo de pnpm viene del starter kit, no de la opción elegida |
-| Árbol limpio | `composer.json` modificado sin commitear | Solo formato: arreglo vacío reescrito y salto de línea final quitado |
+| Esperado                        | Obtenido                                        | Consecuencia                                                                                         |
+| ------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Laravel 12                      | **Laravel 13.31**                               | El instalador toma la última estable. No se fija versión                                             |
+| PostgreSQL (`--database=pgsql`) | **SQLite** en `.env` y `.env.example`           | El `post-create-project-cmd` del starter kit crea `database.sqlite` y migra ahí, ignorando la opción |
+| Solo npm                        | `package-lock.json` **y** `pnpm-workspace.yaml` | El archivo de pnpm viene del starter kit, no de la opción elegida                                    |
+| Árbol limpio                    | `composer.json` modificado sin commitear        | Solo formato: arreglo vacío reescrito y salto de línea final quitado                                 |
 
 ### Lo que trae el starter kit de React
 
@@ -68,12 +68,12 @@ son aplicaciones del repositorio sino servicios, y van en `docker-compose.yml` (
 
 ### Verificación tal como lo dejó el generador
 
-| Comprobación | Resultado |
-|---|---|
+| Comprobación                | Resultado                                |
+| --------------------------- | ---------------------------------------- |
 | `php artisan serve` en 8010 | `/`, `/login`, `/register` y `/up` → 200 |
-| Ruta protegida | `/dashboard` → 302 a `/login` |
-| Assets compilados | `app-*.js` → 200 |
-| `php artisan test` | **39 pruebas, 136 aserciones, en verde** |
+| Ruta protegida              | `/dashboard` → 302 a `/login`            |
+| Assets compilados           | `app-*.js` → 200                         |
+| `php artisan test`          | **39 pruebas, 136 aserciones, en verde** |
 
 Las pruebas usan SQLite en memoria (`phpunit.xml`), no la base del `.env`.
 
@@ -89,10 +89,10 @@ Antes de borrarlo se comprobó que no hacía falta: apartado el archivo, `npm ru
 Los puertos por defecto chocaban con otro proyecto corriendo en la misma máquina
 (8000 y 5173), y los de `nexora-erp` ocupan 3000, 3001 y 5432.
 
-| Servicio | Puerto | Dónde se fija |
-|---|---|---|
-| App (`artisan serve`) | 8010 | `SERVER_PORT` y `APP_URL` en `.env` / `.env.example` |
-| Vite | 5174 | `server.port` en `vite.config.ts`, con `strictPort: true` |
+| Servicio              | Puerto | Dónde se fija                                             |
+| --------------------- | ------ | --------------------------------------------------------- |
+| App (`artisan serve`) | 8010   | `SERVER_PORT` y `APP_URL` en `.env` / `.env.example`      |
+| Vite                  | 5174   | `server.port` en `vite.config.ts`, con `strictPort: true` |
 
 `strictPort` hace que Vite **falle** si el puerto está ocupado, en vez de saltar en
 silencio al siguiente y dejar la app pidiendo assets a un puerto donde no hay nadie.
@@ -105,12 +105,12 @@ apunta a `http://127.0.0.1:5174`, que es lo que la vista usa para pedir `@vite/c
 
 `php artisan dev` levanta cuatro procesos bajo `@laravel/multiplex`:
 
-| Proceso | Comando |
-|---|---|
-| server | `php artisan serve` |
-| queue | `php artisan queue:listen --tries=1 --timeout=0` |
-| logs | `php artisan pail --timeout=0` |
-| vite | `npm run dev` → `vp dev` |
+| Proceso | Comando                                          |
+| ------- | ------------------------------------------------ |
+| server  | `php artisan serve`                              |
+| queue   | `php artisan queue:listen --tries=1 --timeout=0` |
+| logs    | `php artisan pail --timeout=0`                   |
+| vite    | `npm run dev` → `vp dev`                         |
 
 La cola ya viene levantada en desarrollo, así que los jobs del outbox corren sin un paso
 adicional.
@@ -137,10 +137,10 @@ Laravel sigue en local con `composer run dev`.
 
 ### Versiones fijas
 
-| Servicio | Imagen | Cómo se eligió |
-|---|---|---|
-| PostgreSQL | `postgres:17-alpine` | Misma que `nexora-erp`; compatible con Supabase |
-| n8n | `n8nio/n8n:2.38.7` | Es la versión a la que apuntan `stable` y `latest` (mismo digest). La 2.39.x es más nueva pero aún no está marcada como estable |
+| Servicio   | Imagen               | Cómo se eligió                                                                                                                  |
+| ---------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| PostgreSQL | `postgres:17-alpine` | Misma que `nexora-erp`; compatible con Supabase                                                                                 |
+| n8n        | `n8nio/n8n:2.38.7`   | Es la versión a la que apuntan `stable` y `latest` (mismo digest). La 2.39.x es más nueva pero aún no está marcada como estable |
 
 **Buscar la versión estable de n8n en Docker Hub no es directo:** ordenado por
 actualización, las primeras páginas son todas compilaciones nocturnas. Se consultó el
@@ -159,11 +159,11 @@ juegos de variables, cambiar la contraseña en uno y no en el otro rompe la cone
 
 ### Guardas verificadas
 
-| Guarda | Cómo se comprobó |
-|---|---|
+| Guarda                                  | Cómo se comprobó                                                                                                 |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `N8N_ENCRYPTION_KEY` obligatoria (`:?`) | `docker compose --env-file .env.example config` → **se niega a arrancar** con `falta N8N_ENCRYPTION_KEY en .env` |
-| Puertos solo en `127.0.0.1` | `docker compose config` muestra `host_ip: 127.0.0.1` en ambos |
-| Healthchecks | `docker compose up -d --wait` no termina hasta que los dos están `healthy` (1 min 27 s con la descarga de n8n) |
+| Puertos solo en `127.0.0.1`             | `docker compose config` muestra `host_ip: 127.0.0.1` en ambos                                                    |
+| Healthchecks                            | `docker compose up -d --wait` no termina hasta que los dos están `healthy` (1 min 27 s con la descarga de n8n)   |
 
 `N8N_ENCRYPTION_KEY` cifra las credenciales que se guardan dentro de n8n (tokens de
 Telegram, OAuth de Gmail). **Si cambia después de crearlas, n8n ya no puede leerlas.** Por
@@ -186,14 +186,14 @@ n8n corre en un contenedor y Laravel en el host. Desde dentro de un contenedor,
 `localhost` es el propio contenedor. Se hicieron experimentos con servidores PHP mínimos
 en vez de suponer:
 
-| Experimento | Resultado |
-|---|---|
-| Contenedor **sin** `extra_hosts` → `host.docker.internal` | `ENOTFOUND`: el nombre no existe en Linux |
-| Con `extra_hosts: host-gateway` → servidor en `127.0.0.1` | `ECONNREFUSED` |
-| Con `host-gateway` → servidor en `172.21.0.1` (puente del compose) | `ECONNREFUSED` |
-| Con `host-gateway` → servidor en **`172.17.0.1`** (puente `docker0`) | **OK**, pero el navegador ya no llega por `127.0.0.1` |
-| Contenedor con `--network host` → servidor en `127.0.0.1` | **OK** |
-| `SERVER_HOST=127.0.0.2 php artisan serve` | Escucha en `127.0.0.2`: **`artisan serve` respeta `SERVER_HOST`** |
+| Experimento                                                          | Resultado                                                         |
+| -------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Contenedor **sin** `extra_hosts` → `host.docker.internal`            | `ENOTFOUND`: el nombre no existe en Linux                         |
+| Con `extra_hosts: host-gateway` → servidor en `127.0.0.1`            | `ECONNREFUSED`                                                    |
+| Con `host-gateway` → servidor en `172.21.0.1` (puente del compose)   | `ECONNREFUSED`                                                    |
+| Con `host-gateway` → servidor en **`172.17.0.1`** (puente `docker0`) | **OK**, pero el navegador ya no llega por `127.0.0.1`             |
+| Contenedor con `--network host` → servidor en `127.0.0.1`            | **OK**                                                            |
+| `SERVER_HOST=127.0.0.2 php artisan serve`                            | Escucha en `127.0.0.2`: **`artisan serve` respeta `SERVER_HOST`** |
 
 **La causa:** en Docker Engine nativo sobre Linux, `host-gateway` resuelve a la IP del
 puente **`docker0` (172.17.0.1)**, no a la del puente de la red del compose. Un servidor
@@ -207,7 +207,7 @@ red.**
 
 **Decisión:** Laravel se dockeriza ya (Fase 7 adelantada) y los tres servicios comparten
 la red del compose, comunicándose por nombre (`app`, `db`, `n8n`). La regla del playbook
-es *no dockerizar lo que todavía no corre*; Laravel ya corre y está verificado, así que
+es _no dockerizar lo que todavía no corre_; Laravel ya corre y está verificado, así que
 esperar no aporta nada. Se descartaron: n8n con `network_mode: host` (solo Linux) y
 Laravel en `0.0.0.0` (expone la app a la red local).
 
@@ -236,25 +236,25 @@ revienta ahí y la respuesta es **500, no 503**: el chequeo nunca llega a ejecut
 
 ### Pruebas (`tests/Feature/HealthTest.php`)
 
-| Prueba | Qué garantiza |
-|---|---|
-| Base responde → 200 | El camino feliz |
-| `DB::select` lanza excepción → 503 | **La guarda salta** |
-| No se emite cookie de sesión | Que nadie la mueva al grupo `web` sin darse cuenta |
+| Prueba                             | Qué garantiza                                      |
+| ---------------------------------- | -------------------------------------------------- |
+| Base responde → 200                | El camino feliz                                    |
+| `DB::select` lanza excepción → 503 | **La guarda salta**                                |
+| No se emite cookie de sesión       | Que nadie la mueva al grupo `web` sin darse cuenta |
 
 ### Verificación contra el PostgreSQL real
 
-| Paso | Respuesta |
-|---|---|
-| Base arriba | 200 `{"status":"ok","database":"up"}` |
-| `docker compose stop db` | **503** `{"status":"error","database":"down"}` |
-| `docker compose start db`, **sin reiniciar la app** | 200: se recupera sola |
-| Cabeceras `Set-Cookie` en `/health` | 0 |
+| Paso                                                | Respuesta                                      |
+| --------------------------------------------------- | ---------------------------------------------- |
+| Base arriba                                         | 200 `{"status":"ok","database":"up"}`          |
+| `docker compose stop db`                            | **503** `{"status":"error","database":"down"}` |
+| `docker compose start db`, **sin reiniciar la app** | 200: se recupera sola                          |
+| Cabeceras `Set-Cookie` en `/health`                 | 0                                              |
 
 ### Tropiezo: `composer run test` se corta en PHPStan
 
 El PHP de Herd Lite trae `memory_limit=128M`. El análisis en paralelo de PHPStan lo
-supera y el proceso muere con *"reached configured PHP memory limit: 128M"*. Como
+supera y el proceso muere con _"reached configured PHP memory limit: 128M"_. Como
 `composer run test` encadena Pint → PHPStan → Pest, **las pruebas ni siquiera llegan a
 correr**, y la salida puede leerse como si fallara el código.
 
@@ -277,12 +277,12 @@ Laravel ya corría y estaba verificado (la razón de esperar ya se había cumpli
 
 ### Cuatro servicios, una red
 
-| Servicio | Imagen | Rol |
-|---|---|---|
-| `app` | `reformas-leads-app:dev` | Laravel servido por FrankenPHP en 8010 |
-| `queue` | la misma imagen | `php artisan queue:listen` |
-| `db` | `postgres:17-alpine` | Base de datos |
-| `n8n` | `n8nio/n8n:2.38.7` | Automatización |
+| Servicio | Imagen                   | Rol                                    |
+| -------- | ------------------------ | -------------------------------------- |
+| `app`    | `reformas-leads-app:dev` | Laravel servido por FrankenPHP en 8010 |
+| `queue`  | la misma imagen          | `php artisan queue:listen`             |
+| `db`     | `postgres:17-alpine`     | Base de datos                          |
+| `n8n`    | `n8nio/n8n:2.38.7`       | Automatización                         |
 
 Cada proceso en su contenedor; lo que los agrupa es la **red del compose**, que trae DNS
 propio: `app`, `db` y `n8n` resuelven por nombre. **n8n → `http://app:8010/health` → 200**.
@@ -293,24 +293,24 @@ propio: `app`, `db` y `n8n` resuelven por nombre. **n8n → `http://app:8010/hea
 sin montar nginx + php-fpm. Para un despliegue de un contenedor por servicio es lo más
 simple. Lo que hubo que saber de ella, inspeccionándola antes de escribir el Dockerfile:
 
-| Hallazgo | Consecuencia |
-|---|---|
-| Corre como **root** | Usuario propio `app` |
-| Trae `install-php-extensions` | `pdo_pgsql` y `pcntl` en una línea |
-| **No trae** `pdo_pgsql`, `pcntl`, Composer ni Node | Se instalan o se copian por etapa |
-| El Caddyfile lee `SERVER_NAME` | `SERVER_NAME=:8010` → HTTP en ese puerto, sin TLS |
-| Trae `HEALTHCHECK curl localhost:2019/metrics` | **Ver tropiezo abajo** |
-| Alpine 3.24 → `apk add nodejs` da **Node 24.18** | Cumple Vite 8 (≥ 22.12); en el host se usa Node 22 |
+| Hallazgo                                           | Consecuencia                                       |
+| -------------------------------------------------- | -------------------------------------------------- |
+| Corre como **root**                                | Usuario propio `app`                               |
+| Trae `install-php-extensions`                      | `pdo_pgsql` y `pcntl` en una línea                 |
+| **No trae** `pdo_pgsql`, `pcntl`, Composer ni Node | Se instalan o se copian por etapa                  |
+| El Caddyfile lee `SERVER_NAME`                     | `SERVER_NAME=:8010` → HTTP en ese puerto, sin TLS  |
+| Trae `HEALTHCHECK curl localhost:2019/metrics`     | **Ver tropiezo abajo**                             |
+| Alpine 3.24 → `apk add nodejs` da **Node 24.18**   | Cumple Vite 8 (≥ 22.12); en el host se usa Node 22 |
 
 ### Etapas del Dockerfile
 
-| Etapa | Qué hace |
-|---|---|
-| `base` | Extensiones, Composer, usuario `app` con el UID del host |
-| `dev` | Solo el entorno; el código llega por volumen |
-| `vendor` | `composer install --no-dev` |
+| Etapa    | Qué hace                                                                                                                            |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `base`   | Extensiones, Composer, usuario `app` con el UID del host                                                                            |
+| `dev`    | Solo el entorno; el código llega por volumen                                                                                        |
+| `vendor` | `composer install --no-dev`                                                                                                         |
 | `assets` | `npm ci` + `npm run build`. **Necesita PHP y Node a la vez**: el plugin de Wayfinder ejecuta `php artisan` durante el build de Vite |
-| `prod` | Código + `vendor` + `public/build`; **se borra Composer**; `USER app` |
+| `prod`   | Código + `vendor` + `public/build`; **se borra Composer**; `USER app`                                                               |
 
 `.dockerignore` escrito **antes** del primer build: fuera `vendor`, `node_modules`, `.env`,
 `tests`, `docs`, `.git` y el estado de `storage`.
@@ -332,26 +332,26 @@ para los contenedores (`db:5432`) y para herramientas que corran en el host
 
 **Desarrollo** (`docker compose up -d --wait`):
 
-| Comprobación | Resultado |
-|---|---|
-| `app` | healthy; `/health` 200, `/login` 200 |
-| n8n → `http://app:8010/health` | **200** |
-| Proceso | usuario `app`, uid 1000, `pdo_pgsql` y `pcntl` cargados |
-| `php artisan db:show` dentro | PostgreSQL 17.11 en `db:5432` |
-| Dueño de un archivo creado dentro, visto desde el host | `medine01:medine01` |
-| `queue` | `Processing jobs from the [default] queue` |
+| Comprobación                                           | Resultado                                               |
+| ------------------------------------------------------ | ------------------------------------------------------- |
+| `app`                                                  | healthy; `/health` 200, `/login` 200                    |
+| n8n → `http://app:8010/health`                         | **200**                                                 |
+| Proceso                                                | usuario `app`, uid 1000, `pdo_pgsql` y `pcntl` cargados |
+| `php artisan db:show` dentro                           | PostgreSQL 17.11 en `db:5432`                           |
+| Dueño de un archivo creado dentro, visto desde el host | `medine01:medine01`                                     |
+| `queue`                                                | `Processing jobs from the [default] queue`              |
 
 **Producción** (`docker build --target prod`), **arrancada**, no solo construida:
 
-| Comprobación | Resultado |
-|---|---|
-| Tamaño | 238 MB (`vendor` 56 MB, `public/build` 1 MB) |
-| Usuario / Composer / Node / `tests` / `.env` | `app` / eliminado / ausente / ausente / ausente |
-| `/`, `/login`, `/register` | 200; `/dashboard` 302; assets 200 |
-| `php artisan about` | `production`, Debug **OFF** |
-| Errores de Laravel o PHP en los logs | ninguno |
-| Healthcheck de Docker | **healthy** en ~7 s |
-| El comando del healthcheck contra una ruta 404 | sale con **1**: la guarda salta |
+| Comprobación                                   | Resultado                                       |
+| ---------------------------------------------- | ----------------------------------------------- |
+| Tamaño                                         | 238 MB (`vendor` 56 MB, `public/build` 1 MB)    |
+| Usuario / Composer / Node / `tests` / `.env`   | `app` / eliminado / ausente / ausente / ausente |
+| `/`, `/login`, `/register`                     | 200; `/dashboard` 302; assets 200               |
+| `php artisan about`                            | `production`, Debug **OFF**                     |
+| Errores de Laravel o PHP en los logs           | ninguno                                         |
+| Healthcheck de Docker                          | **healthy** en ~7 s                             |
+| El comando del healthcheck contra una ruta 404 | sale con **1**: la guarda salta                 |
 
 ### Tropiezos
 
@@ -367,7 +367,7 @@ desarrollo, `app` usa el del compose.
 
 **Un falso negativo de la comprobación, no de la imagen.** La primera prueba de
 producción dio `000` en todas las rutas. `curl --retry-connrefused` solo reintenta ante
-*conexión rechazada*; en el instante de arrancar, el reenvío de puertos de Docker
+_conexión rechazada_; en el instante de arrancar, el reenvío de puertos de Docker
 **corta** la conexión en vez de rechazarla, y curl se rindió al primer intento. Relanzada
 esperando al contenedor, respondió 200. Y como se había borrado el contenedor al terminar,
 **se perdieron los logs**: al verificar algo que puede fallar, conservar el contenedor
@@ -383,3 +383,134 @@ npm run dev                   # Vite en el host, puerto 5174
 Vite sigue en el host: escribe `public/hot` en el código montado, la app del contenedor
 lo lee, y el navegador pide los assets a `127.0.0.1:5174`. **`composer run dev` ya no se
 usa**: intentaría levantar su propio servidor en 8010, que ahora ocupa el contenedor.
+
+---
+
+## Fase 5 — Primer flujo completo
+
+**Fecha:** 13-sep-2026
+
+El panel muestra el estado de la base de datos y de n8n, consultado desde Laravel. Es el
+primer recorrido de punta a punta: navegador → Laravel → PostgreSQL y n8n.
+
+### Diseño
+
+- `App\Support\SystemStatus`: `databaseIsUp()` y `n8nIsUp()`. `HealthController` reutiliza
+  el chequeo de la base en lugar de duplicarlo.
+- `DashboardController` sustituye al `Route::inertia` estático y pasa `systemStatus` a la
+  página.
+- `N8N_BASE_URL`: `http://127.0.0.1:5678` en el `.env` (host) y `http://n8n:5678` inyectada
+  por el compose (contenedor).
+- Una tarjeta por servicio con `data-test="status-<servicio>"` (la convención del starter kit, no `data-testid`) y `data-state="up|down"`,
+  sembrados **al escribir el componente**.
+
+**`/health` sigue mirando solo la base, a propósito.** Si n8n cae, la app debe seguir
+aceptando leads, que es para lo que existe el outbox. Un healthcheck que incluyera n8n
+haría que Docker o la plataforma de despliegue dieran la app por caída —y la reiniciaran—
+por un fallo de un servicio del que no depende para recibir datos.
+
+**Timeout de 2 s hacia n8n.** Un n8n que no contesta no puede congelar el panel: es
+justo cuando más se necesita verlo.
+
+### Pruebas
+
+`tests/Feature/DashboardStatusTest.php`: todo arriba; n8n responde 503; n8n no contesta
+(`ConnectionException`). En los tres casos el panel responde 200.
+
+**`Http::preventStrayRequests()` en `tests/TestCase.php`.** Sin esto, la prueba del
+dashboard del starter kit habría llamado **de verdad** a n8n: en local encontraría el
+contenedor corriendo y pasaría; en el CI esperaría el timeout. Una prueba que depende de
+un servicio externo pasa o falla según la máquina.
+
+Resultado: **45 pruebas, 170 aserciones**; PHPStan 0 errores; `vp check` sin avisos en 64
+archivos; tipos en verde.
+
+### Verificación contra los contenedores
+
+Inicio de sesión real con cookies y token CSRF, leyendo las props que recibe la página:
+
+| Paso                      | `systemStatus`                                           |
+| ------------------------- | -------------------------------------------------------- |
+| Todo arriba               | `{"database":true,"n8n":true}`                           |
+| `docker compose stop n8n` | `{"database":true,"n8n":false}`, página en 488 ms        |
+| n8n de vuelta y healthy   | `false` en la primera carga; **`true` segundos después** |
+
+**Inertia 3 cambió dónde viajan las props:** ya no en el atributo `data-page` del `div`
+raíz, sino en `<script data-page="app" type="application/json">`. Un script que las busque
+con el formato de Inertia 2 no encuentra nada.
+
+### Tropiezo: un fallo transitorio que parecía persistente
+
+Tras reiniciar n8n, la primera carga seguía diciendo `false`. Hipótesis: caché de DNS en
+los procesos persistentes de FrankenPHP con n8n en otra IP. **Descartada midiendo**: la IP
+no cambió (`172.21.0.2`), `getent hosts n8n` la resolvía bien, y PHP puro, Laravel en un
+proceso nuevo y el panel devolvieron `true` en los intentos siguientes. Era una ventana de
+segundos justo después del arranque.
+
+**Consecuencia para las pruebas:** una prueba de resiliencia que reinicia n8n no puede
+comprobar una sola vez; tiene que reintentar hasta ver el servicio arriba. Si no, es una
+prueba intermitente.
+
+---
+
+## Fase 6 — Suite de pruebas
+
+**Fecha:** 14-sep-2026
+
+### Separada por propósito
+
+| Suite               | Herramienta                         | Qué prueba                                | ¿Navegador? |
+| ------------------- | ----------------------------------- | ----------------------------------------- | ----------- |
+| Contratos y dominio | Pest (`tests/`)                     | HTTP, reglas, casos de error              | No          |
+| `ui`                | Playwright (`e2e/tests/ui`)         | Lo que ve el usuario                      | Sí          |
+| `resilience`        | Playwright (`e2e/tests/resilience`) | Que el sistema detecta sus propios fallos | Sí          |
+
+Playwright **1.63.0** fijado sin `^`. El Chromium que pide (v1243) ya estaba en caché.
+
+### Decisiones
+
+- **`testIdAttribute: 'data-test'`.** El starter kit ya usa `data-test` (`login-button`,
+  `logout-button`). Se corrigió el `data-testid` del dashboard para que haya una sola
+  convención.
+- **Page Object Model desde el primer archivo** (`e2e/pages/`). Ningún `.spec.ts` conoce un
+  selector.
+- **`resilience` depende de `ui`**: corre al final, porque apaga contenedores y dejaría sin
+  servicio a las demás si corrieran a la vez.
+- **Restaurar pase lo que pase:** `afterAll` levanta n8n aunque la prueba falle.
+- **Reintentar hasta ver el cambio**, no comprobar una vez: tras reiniciar n8n hay una
+  ventana de segundos en que todavía no responde (medida en la Fase 5). `waitForService`
+  recarga la página dentro de `expect(...).toPass()`.
+- **Seeder idempotente:** `global-setup` lo ejecuta al empezar para **garantizar** el usuario
+  de prueba sin borrar la base de desarrollo.
+
+### Guardas en `global-setup`, verificadas
+
+| Guarda                              | Cómo se provocó                   | Mensaje                                                                         |
+| ----------------------------------- | --------------------------------- | ------------------------------------------------------------------------------- |
+| URL que no es local                 | `E2E_BASE_URL=http://example.com` | `Las pruebas apagan servicios; se niegan a correr contra http://example.com`    |
+| Servicio detenido                   | `docker compose stop n8n`         | `Servicios detenidos: n8n. Ejecuta: docker compose up -d --wait`                |
+| **Assets más viejos que el código** | `touch resources/js/app.tsx`      | `Los assets compilados son más viejos que resources/js. Ejecuta: npm run build` |
+
+La tercera es propia de este stack. Con los contenedores levantados y sin Vite corriendo,
+la app sirve `public/build`. Si ese build es anterior al último cambio en React, **las
+pruebas verifican una interfaz que ya no existe y pueden pasar en verde**. La guarda
+compara la fecha de `public/build/manifest.json` con el archivo más reciente de
+`resources/js`, y se salta si existe `public/hot` (Vite en marcha).
+
+### Tipos de las pruebas
+
+El `tsconfig.json` de la raíz solo incluye `resources/js`: **nadie verificaba los tipos de
+`e2e/`**. Se añadió `e2e/tsconfig.json` (resolución `bundler`, como el resto) y el script
+`types:check` ahora es `tsc --noEmit && tsc -p e2e/tsconfig.json`.
+
+### Resultado
+
+```
+Running 3 tests using 1 worker
+  ✓ [ui] guests are sent to the login page
+  ✓ [ui] a signed-in user sees every service up
+  ✓ [resilience] the panel detects n8n going down and coming back (15.8s)
+  3 passed (22.2s)
+```
+
+n8n queda `healthy` al terminar.
