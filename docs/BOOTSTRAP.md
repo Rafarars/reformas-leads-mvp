@@ -585,3 +585,50 @@ ningún aviso.
 | -------------------------------------------------------- | ------------------------------- |
 | `actionlint` sobre `ci.yml`                              | sin hallazgos                   |
 | gitleaks sobre todo el historial, misma imagen que el CI | 9 commits, **sin filtraciones** |
+
+---
+
+## Fase 10 — Configuración por entorno
+
+**Fecha:** 14-sep-2026
+
+### Qué se valida
+
+`App\Support\ProductionConfiguration::problems()`. **Fuera de producción no exige nada**:
+los valores por defecto solo existen para desarrollar.
+
+| Regla                                    | Por qué                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| `APP_KEY` no vacía                       | Sin ella no hay sesiones ni cifrado                                     |
+| `APP_DEBUG` desactivado                  | Expondría trazas y variables a cualquier visitante                      |
+| `DB_HOST` no es `localhost`              | El accidente clásico: una variable de desarrollo que llega a producción |
+| `N8N_BASE_URL` presente y no `localhost` | Igual; además, sin ella n8n nunca recibiría avisos                      |
+
+### Falla en cerrado: el contenedor no arranca
+
+El comando `php artisan app:check-config` sale con código 1 y la lista de problemas. La
+imagen `prod` lo ejecuta **antes** del servidor:
+
+```dockerfile
+CMD ["sh", "-c", "php artisan app:check-config && exec frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile"]
+```
+
+Por qué no en un service provider: con FrankenPHP en modo clásico, el arranque de Laravel
+ocurre **por petición**, no al levantar el proceso. Una excepción ahí deja el servidor
+aceptando tráfico y respondiendo 500. Con el chequeo en el `CMD`, la plataforma ve un
+contenedor que no arranca, que es una señal que sí detecta.
+
+`exec` hace que FrankenPHP reemplace al `sh` y reciba directamente las señales de parada.
+
+### Verificación
+
+**Pruebas** (`tests/Feature/CheckConfigurationTest.php`): fuera de producción no exige;
+configuración válida pasa; y un caso por regla (dataset de Pest). **52 pruebas, 183
+aserciones.**
+
+**Imagen `prod` real:**
+
+| Arranque                                                   | Resultado                                                                 |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `DB_HOST=127.0.0.1` y `N8N_BASE_URL=http://localhost:5678` | `running=false`, **exit 1**; el log lista los dos problemas               |
+| Configuración válida                                       | `Configuración válida.` → FrankenPHP arranca → **healthy**; `/health` 200 |

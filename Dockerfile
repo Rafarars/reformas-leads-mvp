@@ -59,3 +59,7 @@ USER app
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=6 \
     CMD php -r "exit(@file_get_contents('http://localhost:8010/health') === false ? 1 : 0);"
+
+# Falla en cerrado: con configuración inválida el contenedor no arranca,
+# en vez de aceptar tráfico y fallar en la primera petición.
+CMD ["sh", "-c", "php artisan app:check-config && exec frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile"]
