@@ -2,19 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\SystemStatus;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Throwable;
 
 class HealthController
 {
-    public function __invoke(): JsonResponse
+    // Solo la base: si n8n cae, la app debe seguir aceptando leads (el outbox los retiene).
+    public function __invoke(SystemStatus $status): JsonResponse
     {
-        try {
-            DB::select('select 1');
-        } catch (Throwable) {
+        if (! $status->databaseIsUp()) {
             // 503 y no 200 con error: Docker y el CI deciden por el código de estado.
-            // No se expone el mensaje de la excepción: puede revelar host y usuario.
             return response()->json(['status' => 'error', 'database' => 'down'], 503);
         }
 
