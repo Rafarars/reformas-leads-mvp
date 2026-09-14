@@ -211,3 +211,38 @@ está bien hecha.**
   la prueba y el código compartirían la referencia y pasarían por accidente
 - **Cada guarda se ve saltar**: una prueba de arquitectura se valida introduciendo a mano la
   infracción que debe detectar
+
+---
+
+## Infraestructura HTTP sin dominio
+
+La autenticación de clientes, la idempotencia y el límite de peticiones son **HTTP**, no reglas
+de negocio de un contexto. Viven en `app/`:
+
+| Pieza                                                  | Dónde                                                                 |
+| ------------------------------------------------------ | --------------------------------------------------------------------- |
+| `AuthenticateApiClient`                                | `app/Http/Middleware` (llama al caso de uso `ApiClientAuthenticator`) |
+| `EnsureIdempotentRequest` y su modelo `IdempotencyKey` | `app/Http/Middleware`, `app/Models`                                   |
+| Límite por cliente                                     | `AppServiceProvider::configureRateLimiting()`                         |
+| Formato de error de la API                             | `app/Http/ApiErrorResponse.php`                                       |
+
+La autenticación **sí** tiene dominio (claves, hash, clientes desactivados) y por eso su lógica
+está en `src/Integrations/ApiClient`; el middleware solo la invoca.
+
+## El orden de los middlewares no es el que se declara
+
+**Laravel reordena los middlewares de una ruta por su lista de prioridades.** `ThrottleRequests`
+está en esa lista y un middleware propio no: aunque la ruta declare
+`['api.client', 'throttle:api-clients', 'idempotent']`, el límite se evaluaba **antes** de
+autenticar, con `api_client_id` vacío, y **todos los clientes compartían el mismo límite**.
+
+`php artisan route:list -v` muestra el orden declarado, no el de ejecución. Se descubrió con la
+prueba de que un cliente saturado no afecta a otro, y se confirmó con una sonda dentro del
+limitador, que vio `NULL` en las dos peticiones.
+
+Dos defensas:
+
+- **Orden explícito** en `bootstrap/app.php` con `prependToPriorityList` y `appendToPriorityList`
+- **Falla en cerrado**: el limitador y la idempotencia lanzan `LogicException` si no hay cliente.
+  Verificado quitando el orden: la prueba pasa a responder 500 con ese mensaje en vez de mezclar
+  clientes en silencio

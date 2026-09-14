@@ -64,3 +64,13 @@ emisor reintentando).
 
 **Qué haría falta:** un bloqueo consultivo de PostgreSQL (`pg_advisory_xact_lock`) sobre el
 teléfono y el email normalizados antes de buscar, o índices únicos y reintentar ante la violación.
+
+## Limpiar las claves de idempotencia
+
+**Qué:** borrar las filas de `idempotency_keys` con más de 24 horas.
+
+**Por qué:** hoy se guardan para siempre. Un reintento legítimo llega en segundos o minutos; pasado
+un día, la clave solo ocupa espacio.
+
+**Qué haría falta:** el trait `MassPrunable` de Laravel en `IdempotencyKey` y `model:prune` en el
+planificador. Implica tener el planificador corriendo, que hoy no está en el compose.

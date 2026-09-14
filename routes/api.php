@@ -1,0 +1,12 @@
+<?php
+
+use App\Http\Controllers\Api\V1\Leads\LeadPostController;
+use Illuminate\Support\Facades\Route;
+
+// El orden importa: el límite y la idempotencia necesitan saber qué cliente llama.
+Route::prefix('v1')
+    ->name('api.v1.')
+    ->middleware(['api.client', 'throttle:api-clients', 'idempotent'])
+    ->group(function () {
+        Route::post('leads', LeadPostController::class)->name('leads.store');
+    });

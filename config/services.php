@@ -14,6 +14,10 @@ return [
     |
     */
 
+    'api' => [
+        'requests_per_minute' => (int) env('API_REQUESTS_PER_MINUTE', 60),
+    ],
+
     'n8n' => [
         'base_url' => env('N8N_BASE_URL', 'http://127.0.0.1:5678'),
     ],

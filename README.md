@@ -14,7 +14,7 @@ construida, no contada.
 | Hito                                                                          | Estado    |
 | ----------------------------------------------------------------------------- | --------- |
 | Fundación: Docker, salud, suite de pruebas, CI, configuración validada        | **Hecho** |
-| API pública `v1` de ingesta (API key por origen, idempotencia, rate limiting) | Pendiente |
+| API pública `v1` de ingesta (API key por origen, idempotencia, rate limiting) | **Hecho** |
 | Outbox, reintentos con backoff, circuit breaker y DLQ                         | Pendiente |
 | Clasificación con IA y flujos de n8n (Telegram, Gmail)                        | Pendiente |
 | Panel de resiliencia con simulación de caídas                                 | Pendiente |
