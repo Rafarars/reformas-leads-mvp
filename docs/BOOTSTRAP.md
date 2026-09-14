@@ -514,3 +514,74 @@ Running 3 tests using 1 worker
 ```
 
 n8n queda `healthy` al terminar.
+
+---
+
+## Fase 8 — Integración continua
+
+**Fecha:** 14-sep-2026
+
+`.github/workflows/ci.yml` sustituye al `tests.yml` del starter kit, adaptando la plantilla
+de `engineering-playbook/templates/ci.yml`.
+
+### Por qué no servía el workflow del starter kit
+
+| Del starter kit      | Problema                                                                          |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `php-version: '8.3'` | La imagen usa PHP 8.4: el CI verificaría otra versión                             |
+| `composer setup`     | Migra con `.env.example`, que ahora apunta a PostgreSQL; en el runner no hay base |
+| Un solo trabajo      | Sin escaneo de secretos ni pruebas end-to-end                                     |
+
+### Tres trabajos en paralelo
+
+```
+push / pull_request
+ ├── secrets   gitleaks sobre todo el historial
+ ├── quality   composer test (Pint + PHPStan + Pest) · types:check · vp check
+ └── e2e       docker compose up (el mismo que en local) · migrate · Playwright
+```
+
+No hay trabajo de publicación del reporte: **GitHub Pages no está disponible en
+repositorios privados con plan gratuito**. El reporte de Playwright se sube como
+artefacto (`if: always()`, solo si existe) y los logs de Docker cuando algo falla.
+
+Las acciones del starter kit ya venían **fijadas por SHA** (`checkout`, `setup-php`,
+`setup-node`); se conservaron. `cache` y `upload-artifact` van por etiqueta mayor.
+
+### Detalles del runner
+
+- **UID distinto.** El usuario del runner no es 1000. Sin pasar `UID`/`GID` al compose, el
+  contenedor escribe como otro usuario y no puede crear logs ni caché en el código montado.
+  Se añaden al `.env` antes de `docker compose up --build`.
+- **Clave de n8n desechable** con `openssl rand -hex 32`: el runner nace y muere con la
+  corrida.
+- **`npm run build` antes de levantar**: el contenedor de desarrollo sirve `public/build`
+  desde el código montado, y la guarda de `global-setup` exige que sea reciente.
+- Instalación de navegadores con **tres reintentos**: `--with-deps` usa apt y falla de forma
+  transitoria.
+
+### Código derivado: los tipos de rutas de Wayfinder
+
+`tsc` necesita `resources/js/{actions,routes,wayfinder}`, que genera Wayfinder y están en
+`.gitignore`. **En un clon limpio no existen.** Experimento: se apartaron los 58 archivos
+generados y `types:check` dio **38 errores de TypeScript**; con
+`php artisan wayfinder:generate --with-form` volvió a pasar, y la salida resultó **idéntica**
+a la del plugin de Vite.
+
+Arreglo en el punto donde nace la necesidad, no como paso suelto del pipeline:
+
+```json
+"types:check": "php artisan wayfinder:generate --with-form && tsc --noEmit && tsc -p e2e/tsconfig.json"
+```
+
+**No sirve un script `pretypes:check`.** El `.npmrc` del starter kit tiene
+`ignore-scripts=true`, que además de bloquear los scripts de instalación de dependencias
+**desactiva los scripts `pre` y `post`** de npm. El enganche no se ejecutaría y no habría
+ningún aviso.
+
+### Verificaciones antes del primer push
+
+| Comprobación                                             | Resultado                       |
+| -------------------------------------------------------- | ------------------------------- |
+| `actionlint` sobre `ci.yml`                              | sin hallazgos                   |
+| gitleaks sobre todo el historial, misma imagen que el CI | 9 commits, **sin filtraciones** |
