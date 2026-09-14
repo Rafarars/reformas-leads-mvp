@@ -632,3 +632,22 @@ aserciones.**
 | ---------------------------------------------------------- | ------------------------------------------------------------------------- |
 | `DB_HOST=127.0.0.1` y `N8N_BASE_URL=http://localhost:5678` | `running=false`, **exit 1**; el log lista los dos problemas               |
 | Configuración válida                                       | `Configuración válida.` → FrankenPHP arranca → **healthy**; `/health` 200 |
+
+---
+
+## Fase 11 — README
+
+**Fecha:** 14-sep-2026
+
+- **Estado honesto por hitos.** La fundación está hecha; la API `v1`, el outbox, la IA, los
+  flujos de n8n y el panel de resiliencia figuran como **pendientes**. Un README que promete
+  lo que no existe es lo primero que un revisor detecta.
+- **Cifras verificadas antes de escribirlas**: 52 pruebas de Pest con 183 aserciones, 2
+  pruebas de Playwright `ui` y 1 de `resilience`, todas ejecutadas en esta sesión.
+- **Tabla de decisiones con las alternativas descartadas** y su porqué: la sección que no se
+  improvisa.
+- **Pendiente para "un comando"**: el playbook pide levantarlo en un solo comando. Hoy son
+  seis pasos; eso le corresponde a un `Makefile`, que se propone aparte antes de escribirlo.
+
+La spec recibió la sección de la API pública `v1` y la regla de **solo datos ficticios** para
+la IA, acordadas durante el diseño.

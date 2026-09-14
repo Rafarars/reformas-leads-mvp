@@ -118,6 +118,24 @@ Solo en la parte interpretativa: clasificar, detectar huecos y contradicciones, 
 - Salida con esquema estricto y validada. Si no valida, se reintenta; si insiste, va a DLQ.
 - Si la IA falla o tarda, **el lead igual queda guardado y visible** para el equipo, sin clasificar.
 - El mensaje al cliente se genera pero **no se envía**: queda en revisión humana.
+- **Solo datos ficticios.** El tier gratuito de la API de Gemini puede usar lo que recibe
+  para mejorar sus productos. Ningún lead real pasa por la IA de este proyecto.
+
+## 7b. API pública `v1`
+
+El contrato del sistema es **`POST /api/v1/leads`**. El formulario React es un cliente más,
+igual que un webhook externo (Facebook Lead Ads) o n8n: no hay rutas internas separadas.
+
+| Pieza                           | Qué resuelve                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| Versionado en la ruta           | El día que cambie el contrato, quien consume `v1` no se rompe                     |
+| API key por origen              | Cada consumidor tiene su clave, rotable por separado                              |
+| Campo `source`                  | Trazabilidad por canal: qué origen trae leads y cuáles convierten                 |
+| Rate limiting por key           | Un integrador roto no tumba a los demás                                           |
+| `Idempotency-Key` en la entrada | Si el emisor reintenta porque perdió nuestro `200 OK`, no se crea un segundo lead |
+
+La idempotencia se aplica **en los dos sentidos**: al recibir (`Idempotency-Key`) y al enviar
+(clave por mensaje del outbox).
 
 ## 8. n8n
 
