@@ -1,8 +1,56 @@
-# Servicios de apoyo. La app de Laravel corre en local (composer run dev).
+# Los tres servicios comparten la red del compose y se hablan por nombre: app, db, n8n.
 # Compose lee el mismo .env que Laravel: las credenciales tienen una sola fuente.
 name: reformas-leads
 
+x-app-env: &app-env
+  # Dentro de la red del compose la base es "db" en su puerto interno, no 127.0.0.1:5433.
+  # Las variables de entorno reales tienen prioridad sobre el .env que Laravel lee.
+  DB_HOST: db
+  DB_PORT: 5432
+
 services:
+  app:
+    build:
+      context: .
+      target: dev
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: reformas-leads-app:dev
+    container_name: reformas-app
+    restart: unless-stopped
+    environment: *app-env
+    ports:
+      - "${BIND_HOST:-127.0.0.1}:${APP_PORT:-8010}:8010"
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - php
+        - -r
+        - "exit(@file_get_contents('http://localhost:8010/health') === false ? 1 : 0);"
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  queue:
+    image: reformas-leads-app:dev
+    container_name: reformas-queue
+    restart: unless-stopped
+    # listen y no work: recarga el código en cada job, que es lo que se quiere al desarrollar.
+    command: ["php", "artisan", "queue:listen", "--tries=1", "--timeout=0"]
+    environment: *app-env
+    volumes:
+      - .:/app
+    depends_on:
+      app:
+        condition: service_healthy
+
   db:
     image: postgres:17-alpine
     container_name: reformas-db

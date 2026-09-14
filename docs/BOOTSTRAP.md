@@ -265,3 +265,121 @@ máquina; el flag funciona en cualquier clon y en el CI.
 El aviso `Unable to load dynamic library ... phpstan_turbo-8.4.so (Dynamic loading not
 supported)` es independiente e inofensivo: el PHP de Herd Lite es estático y no carga
 extensiones; PHPStan funciona igual sin su acelerador.
+
+---
+
+## Fase 7 — Dockerizar la aplicación (adelantada)
+
+**Fecha:** 13-sep-2026
+
+Se adelantó porque la integración con n8n necesita que los servicios compartan red, y
+Laravel ya corría y estaba verificado (la razón de esperar ya se había cumplido).
+
+### Cuatro servicios, una red
+
+| Servicio | Imagen | Rol |
+|---|---|---|
+| `app` | `reformas-leads-app:dev` | Laravel servido por FrankenPHP en 8010 |
+| `queue` | la misma imagen | `php artisan queue:listen` |
+| `db` | `postgres:17-alpine` | Base de datos |
+| `n8n` | `n8nio/n8n:2.38.7` | Automatización |
+
+Cada proceso en su contenedor; lo que los agrupa es la **red del compose**, que trae DNS
+propio: `app`, `db` y `n8n` resuelven por nombre. **n8n → `http://app:8010/health` → 200**.
+
+### Imagen base: FrankenPHP
+
+`dunglas/frankenphp:1.12.7-php8.4-alpine`. Sirve PHP en un solo proceso (Caddy integrado),
+sin montar nginx + php-fpm. Para un despliegue de un contenedor por servicio es lo más
+simple. Lo que hubo que saber de ella, inspeccionándola antes de escribir el Dockerfile:
+
+| Hallazgo | Consecuencia |
+|---|---|
+| Corre como **root** | Usuario propio `app` |
+| Trae `install-php-extensions` | `pdo_pgsql` y `pcntl` en una línea |
+| **No trae** `pdo_pgsql`, `pcntl`, Composer ni Node | Se instalan o se copian por etapa |
+| El Caddyfile lee `SERVER_NAME` | `SERVER_NAME=:8010` → HTTP en ese puerto, sin TLS |
+| Trae `HEALTHCHECK curl localhost:2019/metrics` | **Ver tropiezo abajo** |
+| Alpine 3.24 → `apk add nodejs` da **Node 24.18** | Cumple Vite 8 (≥ 22.12); en el host se usa Node 22 |
+
+### Etapas del Dockerfile
+
+| Etapa | Qué hace |
+|---|---|
+| `base` | Extensiones, Composer, usuario `app` con el UID del host |
+| `dev` | Solo el entorno; el código llega por volumen |
+| `vendor` | `composer install --no-dev` |
+| `assets` | `npm ci` + `npm run build`. **Necesita PHP y Node a la vez**: el plugin de Wayfinder ejecuta `php artisan` durante el build de Vite |
+| `prod` | Código + `vendor` + `public/build`; **se borra Composer**; `USER app` |
+
+`.dockerignore` escrito **antes** del primer build: fuera `vendor`, `node_modules`, `.env`,
+`tests`, `docs`, `.git` y el estado de `storage`.
+
+### Permisos con el código montado
+
+El usuario del contenedor se crea con `UID`/`GID` del host (1000). Un archivo creado
+dentro del contenedor en `storage/logs` aparece en el host como `medine01:medine01`. Sin
+esto, Laravel escribe logs y caché como otro usuario y no se pueden editar ni borrar.
+
+### Variables dentro de la red
+
+`DB_HOST=db` y `DB_PORT=5432` se inyectan desde el compose. Las variables de entorno
+reales **tienen prioridad** sobre el `.env` que Laravel lee, así que el mismo `.env` sirve
+para los contenedores (`db:5432`) y para herramientas que corran en el host
+(`127.0.0.1:5433`).
+
+### Verificación
+
+**Desarrollo** (`docker compose up -d --wait`):
+
+| Comprobación | Resultado |
+|---|---|
+| `app` | healthy; `/health` 200, `/login` 200 |
+| n8n → `http://app:8010/health` | **200** |
+| Proceso | usuario `app`, uid 1000, `pdo_pgsql` y `pcntl` cargados |
+| `php artisan db:show` dentro | PostgreSQL 17.11 en `db:5432` |
+| Dueño de un archivo creado dentro, visto desde el host | `medine01:medine01` |
+| `queue` | `Processing jobs from the [default] queue` |
+
+**Producción** (`docker build --target prod`), **arrancada**, no solo construida:
+
+| Comprobación | Resultado |
+|---|---|
+| Tamaño | 238 MB (`vendor` 56 MB, `public/build` 1 MB) |
+| Usuario / Composer / Node / `tests` / `.env` | `app` / eliminado / ausente / ausente / ausente |
+| `/`, `/login`, `/register` | 200; `/dashboard` 302; assets 200 |
+| `php artisan about` | `production`, Debug **OFF** |
+| Errores de Laravel o PHP en los logs | ninguno |
+| Healthcheck de Docker | **healthy** en ~7 s |
+| El comando del healthcheck contra una ruta 404 | sale con **1**: la guarda salta |
+
+### Tropiezos
+
+**El healthcheck heredado de FrankenPHP.** La imagen base comprueba el panel de
+administración de Caddy (`:2019/metrics`). Dos problemas:
+
+1. `queue` usa la misma imagen pero no levanta servidor web → quedaba **unhealthy**
+   mientras procesaba jobs sin problema.
+2. En producción diría **healthy con la base caída**: justo lo que la Fase 4 evita.
+
+Arreglo: `HEALTHCHECK NONE` en `base` y uno propio contra `/health` en `prod`. En
+desarrollo, `app` usa el del compose.
+
+**Un falso negativo de la comprobación, no de la imagen.** La primera prueba de
+producción dio `000` en todas las rutas. `curl --retry-connrefused` solo reintenta ante
+*conexión rechazada*; en el instante de arrancar, el reenvío de puertos de Docker
+**corta** la conexión en vez de rechazarla, y curl se rindió al primer intento. Relanzada
+esperando al contenedor, respondió 200. Y como se había borrado el contenedor al terminar,
+**se perdieron los logs**: al verificar algo que puede fallar, conservar el contenedor
+hasta leerlos.
+
+### Flujo de desarrollo después de dockerizar
+
+```bash
+docker compose up -d --wait   # app, queue, db y n8n
+npm run dev                   # Vite en el host, puerto 5174
+```
+
+Vite sigue en el host: escribe `public/hot` en el código montado, la app del contenedor
+lo lee, y el navegador pide los assets a `127.0.0.1:5174`. **`composer run dev` ya no se
+usa**: intentaría levantar su propio servidor en 8010, que ahora ocupa el contenedor.

@@ -1,0 +1,28 @@
+# Se regenera dentro de la imagen; copiarlo pisaría lo instalado.
+vendor
+node_modules
+public/build
+public/hot
+
+# Secretos y estado local: nunca dentro de una imagen.
+.env
+.env.*
+!.env.example
+database/*.sqlite*
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/pail
+bootstrap/cache/*.php
+
+# Nada de esto hace falta para ejecutar la app.
+.git
+.github
+.phpunit.cache
+.phpunit.result.cache
+docs
+tests
+*.md
+.idea
+.vscode
