@@ -103,7 +103,7 @@ jobs:
             - run: docker compose exec -T app php artisan migrate --force
 
             # Los binarios solo cambian al subir de versión de Playwright.
-            - uses: actions/cache@v4
+            - uses: actions/cache@v6
               with:
                   path: ~/.cache/ms-playwright
                   key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
@@ -127,14 +127,14 @@ jobs:
               if: failure()
               run: docker compose logs --no-color > docker-logs.txt
 
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v7
               if: always() && hashFiles('playwright-report/index.html') != ''
               with:
                   name: playwright-report
                   path: playwright-report
                   retention-days: 14
 
-            - uses: actions/upload-artifact@v4
+            - uses: actions/upload-artifact@v7
               if: failure()
               with:
                   name: docker-logs
