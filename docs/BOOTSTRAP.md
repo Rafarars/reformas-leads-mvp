@@ -125,3 +125,143 @@ adicional.
 - **`public/hot` queda huérfano** si Vite no se cierra limpio. Mientras exista, la app
   pide los assets a un servidor de Vite que no está corriendo y la página sale sin
   estilos. Se borra a mano; está en `.gitignore`.
+
+---
+
+## Fase 3 — Servicios en contenedor
+
+**Fecha:** 13-sep-2026
+
+Solo los servicios de apoyo, no la aplicación: **PostgreSQL** y **n8n**. La app de
+Laravel sigue en local con `composer run dev`.
+
+### Versiones fijas
+
+| Servicio | Imagen | Cómo se eligió |
+|---|---|---|
+| PostgreSQL | `postgres:17-alpine` | Misma que `nexora-erp`; compatible con Supabase |
+| n8n | `n8nio/n8n:2.38.7` | Es la versión a la que apuntan `stable` y `latest` (mismo digest). La 2.39.x es más nueva pero aún no está marcada como estable |
+
+**Buscar la versión estable de n8n en Docker Hub no es directo:** ordenado por
+actualización, las primeras páginas son todas compilaciones nocturnas. Se consultó el
+digest de `stable` y se buscó qué tag numerado tenía el mismo digest:
+
+```bash
+curl -s https://hub.docker.com/v2/repositories/n8nio/n8n/tags/stable
+curl -s "https://hub.docker.com/v2/repositories/n8nio/n8n/tags?name=2.&page_size=100"
+```
+
+### Una sola fuente para las credenciales
+
+Compose lee el mismo `.env` que Laravel. El contenedor de Postgres toma `DB_USERNAME`,
+`DB_PASSWORD` y `DB_DATABASE` en lugar de tener sus propias `POSTGRES_*`: si fueran dos
+juegos de variables, cambiar la contraseña en uno y no en el otro rompe la conexión.
+
+### Guardas verificadas
+
+| Guarda | Cómo se comprobó |
+|---|---|
+| `N8N_ENCRYPTION_KEY` obligatoria (`:?`) | `docker compose --env-file .env.example config` → **se niega a arrancar** con `falta N8N_ENCRYPTION_KEY en .env` |
+| Puertos solo en `127.0.0.1` | `docker compose config` muestra `host_ip: 127.0.0.1` en ambos |
+| Healthchecks | `docker compose up -d --wait` no termina hasta que los dos están `healthy` (1 min 27 s con la descarga de n8n) |
+
+`N8N_ENCRYPTION_KEY` cifra las credenciales que se guardan dentro de n8n (tokens de
+Telegram, OAuth de Gmail). **Si cambia después de crearlas, n8n ya no puede leerlas.** Por
+eso no tiene valor por defecto y se genera una sola vez con `openssl rand -hex 32`.
+
+### Laravel pasa de SQLite a PostgreSQL
+
+`DB_CONNECTION=pgsql` en `.env`, puerto 5433. `php artisan migrate` aplicó las cinco
+migraciones del starter kit; `php artisan db:show` confirma PostgreSQL 17.11, base
+`reformas`, 10 tablas.
+
+### n8n
+
+`/healthz` → `{"status":"ok"}`, editor en `http://localhost:5678` → 200,
+`n8n --version` → 2.38.7.
+
+### Hallazgo: n8n no puede llamar a Laravel tal como está
+
+n8n corre en un contenedor y Laravel en el host. Desde dentro de un contenedor,
+`localhost` es el propio contenedor. Se hicieron experimentos con servidores PHP mínimos
+en vez de suponer:
+
+| Experimento | Resultado |
+|---|---|
+| Contenedor **sin** `extra_hosts` → `host.docker.internal` | `ENOTFOUND`: el nombre no existe en Linux |
+| Con `extra_hosts: host-gateway` → servidor en `127.0.0.1` | `ECONNREFUSED` |
+| Con `host-gateway` → servidor en `172.21.0.1` (puente del compose) | `ECONNREFUSED` |
+| Con `host-gateway` → servidor en **`172.17.0.1`** (puente `docker0`) | **OK**, pero el navegador ya no llega por `127.0.0.1` |
+| Contenedor con `--network host` → servidor en `127.0.0.1` | **OK** |
+| `SERVER_HOST=127.0.0.2 php artisan serve` | Escucha en `127.0.0.2`: **`artisan serve` respeta `SERVER_HOST`** |
+
+**La causa:** en Docker Engine nativo sobre Linux, `host-gateway` resuelve a la IP del
+puente **`docker0` (172.17.0.1)**, no a la del puente de la red del compose. Un servidor
+que escucha solo en `127.0.0.1` no es alcanzable desde ningún puente.
+
+**Error de diagnóstico que costó un experimento:** la salida de Compose decía
+`v2.29.7-desktop.1` y se sospechó de Docker Desktop (contenedores dentro de una VM).
+`docker context show` → `default` y `docker info` → Ubuntu nativo lo descartaron: el
+sufijo es del binario, no del motor. **Comprobar el contexto antes de razonar sobre la
+red.**
+
+**Decisión:** Laravel se dockeriza ya (Fase 7 adelantada) y los tres servicios comparten
+la red del compose, comunicándose por nombre (`app`, `db`, `n8n`). La regla del playbook
+es *no dockerizar lo que todavía no corre*; Laravel ya corre y está verificado, así que
+esperar no aporta nada. Se descartaron: n8n con `network_mode: host` (solo Linux) y
+Laravel en `0.0.0.0` (expone la app a la red local).
+
+---
+
+## Fase 4 — Endpoint de salud
+
+**Fecha:** 13-sep-2026
+
+### Por qué no sirve el `/up` de Laravel
+
+El starter kit declara `health: '/up'` en `bootstrap/app.php`. Responde 200 si el proceso
+está vivo, **sin consultar la base**. Se eliminó y se sustituyó por `/health`.
+
+### Implementación
+
+- `app/Http/Controllers/HealthController.php`: `select 1` a la base. Si falla, **503** con
+  `{"status":"error","database":"down"}`. No se devuelve el mensaje de la excepción: puede
+  revelar el host y el usuario de la base.
+- Registrada en `bootstrap/app.php` dentro de `then:`, **fuera del grupo `web`**.
+
+**La trampa específica de Laravel:** el starter kit guarda las sesiones en la base
+(`SESSION_DRIVER=database`). Una ruta en `routes/web.php` pasa por el middleware de
+sesión, que consulta la base **antes** de llegar al controlador. Con la base caída,
+revienta ahí y la respuesta es **500, no 503**: el chequeo nunca llega a ejecutarse.
+
+### Pruebas (`tests/Feature/HealthTest.php`)
+
+| Prueba | Qué garantiza |
+|---|---|
+| Base responde → 200 | El camino feliz |
+| `DB::select` lanza excepción → 503 | **La guarda salta** |
+| No se emite cookie de sesión | Que nadie la mueva al grupo `web` sin darse cuenta |
+
+### Verificación contra el PostgreSQL real
+
+| Paso | Respuesta |
+|---|---|
+| Base arriba | 200 `{"status":"ok","database":"up"}` |
+| `docker compose stop db` | **503** `{"status":"error","database":"down"}` |
+| `docker compose start db`, **sin reiniciar la app** | 200: se recupera sola |
+| Cabeceras `Set-Cookie` en `/health` | 0 |
+
+### Tropiezo: `composer run test` se corta en PHPStan
+
+El PHP de Herd Lite trae `memory_limit=128M`. El análisis en paralelo de PHPStan lo
+supera y el proceso muere con *"reached configured PHP memory limit: 128M"*. Como
+`composer run test` encadena Pint → PHPStan → Pest, **las pruebas ni siquiera llegan a
+correr**, y la salida puede leerse como si fallara el código.
+
+**Arreglo en el repositorio, no en la máquina:** `phpstan analyse --memory-limit=1G` en
+el script `types:check` de `composer.json`. Subir el `php.ini` arreglaría solo esta
+máquina; el flag funciona en cualquier clon y en el CI.
+
+El aviso `Unable to load dynamic library ... phpstan_turbo-8.4.so (Dynamic loading not
+supported)` es independiente e inofensivo: el PHP de Herd Lite es estático y no carga
+extensiones; PHPStan funciona igual sin su acelerador.
