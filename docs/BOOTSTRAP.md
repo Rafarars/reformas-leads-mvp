@@ -651,3 +651,91 @@ aserciones.**
 
 La spec recibió la sección de la API pública `v1` y la regla de **solo datos ficticios** para
 la IA, acordadas durante el diseño.
+
+---
+
+## Fase 8, segunda parte — La primera corrida del CI falló
+
+**Fecha:** 14-sep-2026
+
+Los dos trabajos con código fallaron en `main` (y en el PR que Dependabot abrió solo al crear
+el repositorio). **Las tres causas eran del proyecto, no del runner**, y ninguna aparecía en
+local porque esta máquina ya tenía lo que en un clon limpio no existe. Es el caso exacto
+que el playbook describe para `verify-clean`.
+
+Cada una se **reprodujo en local antes de arreglarla**.
+
+### 1. `quality`: 15 pruebas con 500 — `ViteManifestNotFoundException`
+
+Las vistas usan `@vite`; sin `public/build`, renderizar cualquier página revienta. En local
+el build existía. Reproducido apartando `public/build`: **15 fallidas**, el mismo número que
+en el CI.
+
+Arreglo: `$this->withoutVite()` en `tests/TestCase.php`. **Las pruebas de backend no deben
+depender del frontend compilado.** Añadir `npm run build` al trabajo de calidad también
+funcionaba, pero lo haría más lento y acoplaría las dos cosas.
+
+### 2. `e2e`: `pull access denied for reformas-leads-app`
+
+`queue` declaraba `image: reformas-leads-app:dev` **sin `build`**. En local la imagen ya la
+había construido `app`; en un runner limpio Compose intenta **descargarla** de Docker Hub.
+Reproducido borrando la imagen y levantando con `--build`: mismo error.
+
+Arreglo: la sección `build` compartida con un ancla de YAML (`x-app-build: &app-build`) y
+usada por `app` y por `queue`.
+
+### 3. `e2e`: `container reformas-queue has no healthcheck configured`
+
+Apareció al arreglar el anterior: `docker compose up --wait` salía con **código 1** con los
+cuatro servicios funcionando. La salida filtrada con `grep` no mostraba nada; **guardada
+completa**, la última línea lo decía.
+
+Era una regresión propia de la Fase 7: `HEALTHCHECK NONE` en la imagen base dejó a `queue`
+sin healthcheck, y `--wait` lo trata como fallo. En su momento no se miró el código de
+salida de ese `up`.
+
+**Un primer arreglo que habría mentido.** `pgrep -f "artisan queue:listen"` parecía obvio.
+Al probar la guarda en sentido contrario, buscar un proceso inexistente **también devolvía
+0**: `pgrep -f` compara contra la línea de comando completa y encuentra al propio
+`sh -c '...'` que contiene el texto. Habría dicho _healthy_ siempre.
+
+Arreglo: `php artisan queue:failed`, que consulta `failed_jobs` y comprueba que el worker
+**alcanza la base, que es donde vive la cola**:
+
+| Estado         | Resultado          |
+| -------------- | ------------------ |
+| Base arriba    | exit 0, 325 ms     |
+| Base apagada   | **exit 1**, 684 ms |
+| Base de vuelta | exit 0, 319 ms     |
+
+### Formateo que también toca YAML
+
+`vp check --fix` reformateó `docker-compose.yml` a cuatro espacios y comillas simples (ya
+estaba commiteado desde la Fase 5). Es YAML válido, pero un parche que buscaba el texto con
+dos espacios dejó de coincidir. **`vp fmt` formatea YAML y Markdown, no solo TypeScript.**
+
+### Verificación local antes de volver a subir
+
+| Comprobación                                                                         | Resultado                                  |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Runner limpio simulado: imagen `dev` borrada + `docker compose up -d --build --wait` | **exit 0**, los cuatro servicios _healthy_ |
+| `composer test`                                                                      | 52 pruebas, PHPStan 0 errores              |
+| `npm run check`                                                                      | sin avisos                                 |
+
+### 4. Falso positivo de la guarda de assets
+
+Al correr la suite después de `types:check`, la guarda bloqueó sin que hubiera cambiado la
+interfaz. **Los 58 archivos** más nuevos que el manifest eran exactamente los que genera
+Wayfinder (41 en `actions`, 16 en `routes`, 1 en `wayfinder`): `types:check` los reescribe
+con el mismo contenido y fecha nueva. El código real más reciente era anterior al build.
+
+Primer diagnóstico **equivocado por la herramienta**: `find -printf '%TT'` ordena por hora
+del día sin la fecha, y archivos de la víspera aparecían como los más recientes. Con `%T@`
+(segundos desde época) salió la respuesta.
+
+Arreglo: la guarda ignora `resources/js/{actions,routes,wayfinder}`. Verificado en los dos
+sentidos: tras `types:check` **no** bloquea; tras tocar `app.tsx` **sí** bloquea. **Una guarda
+que salta de más se acaba desactivando.**
+
+| Suite end-to-end tras los arreglos | 3 pruebas en verde (17,6 s) |
+| ---------------------------------- | --------------------------- |

@@ -2,6 +2,15 @@
 # Compose lee el mismo .env que Laravel: las credenciales tienen una sola fuente.
 name: reformas-leads
 
+# app y queue usan la misma imagen. Las dos necesitan la seccion build: si solo la
+# tiene app, en una maquina sin la imagen Compose intenta descargar la de queue.
+x-app-build: &app-build
+    context: .
+    target: dev
+    args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+
 x-app-env: &app-env
     # Dentro de la red del compose la base es "db" en su puerto interno, no 127.0.0.1:5433.
     # Las variables de entorno reales tienen prioridad sobre el .env que Laravel lee.
@@ -11,12 +20,7 @@ x-app-env: &app-env
 
 services:
     app:
-        build:
-            context: .
-            target: dev
-            args:
-                UID: ${UID:-1000}
-                GID: ${GID:-1000}
+        build: *app-build
         image: reformas-leads-app:dev
         container_name: reformas-app
         restart: unless-stopped
@@ -40,11 +44,20 @@ services:
             start_period: 10s
 
     queue:
+        build: *app-build
         image: reformas-leads-app:dev
         container_name: reformas-queue
         restart: unless-stopped
         # listen y no work: recarga el código en cada job, que es lo que se quiere al desarrollar.
         command: ['php', 'artisan', 'queue:listen', '--tries=1', '--timeout=0']
+        # Consulta failed_jobs: comprueba que el worker alcanza la base, que es donde vive la cola.
+        # Sin healthcheck, `docker compose up --wait` falla aunque todo funcione.
+        healthcheck:
+            test: ['CMD', 'php', 'artisan', 'queue:failed']
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
         environment: *app-env
         volumes:
             - .:/app

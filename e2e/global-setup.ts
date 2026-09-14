@@ -6,9 +6,19 @@ import {
     startService,
 } from './support/environment';
 
+// Los genera Wayfinder desde las rutas de PHP: types:check los reescribe con el mismo
+// contenido y fecha nueva, lo que haría saltar la guarda sin que cambie la interfaz.
+const GENERATED = ['actions', 'routes', 'wayfinder'].map((name) =>
+    join('resources/js', name),
+);
+
 function newestModification(directory: string): number {
     return readdirSync(directory, { recursive: true, withFileTypes: true })
         .filter((entry) => entry.isFile())
+        .filter(
+            (entry) =>
+                !GENERATED.some((dir) => entry.parentPath.startsWith(dir)),
+        )
         .map((entry) => statSync(join(entry.parentPath, entry.name)).mtimeMs)
         .reduce((newest, current) => Math.max(newest, current), 0);
 }
