@@ -29,6 +29,9 @@ export default defineConfig({
         }),
     ]),
     server: {
+        // 5173 lo usa otro proyecto; strictPort falla en vez de cambiar de puerto en silencio.
+        port: 5174,
+        strictPort: true,
         watch: {
             ignored: [
                 '**/.agents/**',
