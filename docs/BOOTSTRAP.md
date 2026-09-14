@@ -318,7 +318,7 @@ simple. Lo que hubo que saber de ella, inspeccionándola antes de escribir el Do
 ### Permisos con el código montado
 
 El usuario del contenedor se crea con `UID`/`GID` del host (1000). Un archivo creado
-dentro del contenedor en `storage/logs` aparece en el host como `medine01:medine01`. Sin
+dentro del contenedor en `storage/logs` aparece en el host a nombre del usuario del host. Sin
 esto, Laravel escribe logs y caché como otro usuario y no se pueden editar ni borrar.
 
 ### Variables dentro de la red
@@ -338,7 +338,7 @@ para los contenedores (`db:5432`) y para herramientas que corran en el host
 | n8n → `http://app:8010/health`                         | **200**                                                 |
 | Proceso                                                | usuario `app`, uid 1000, `pdo_pgsql` y `pcntl` cargados |
 | `php artisan db:show` dentro                           | PostgreSQL 17.11 en `db:5432`                           |
-| Dueño de un archivo creado dentro, visto desde el host | `medine01:medine01`                                     |
+| Dueño de un archivo creado dentro, visto desde el host | el usuario del host                                     |
 | `queue`                                                | `Processing jobs from the [default] queue`              |
 
 **Producción** (`docker build --target prod`), **arrancada**, no solo construida:
@@ -772,3 +772,51 @@ Arreglo: `db:monitor --databases=pgsql`, que comprueba la conexión sin consulta
 vacía nueva, `.env` apuntando a ella (con respaldo), `up --wait` de `app` y `queue` →
 **exit 0 con 0 tablas**; `migrate` → 10 tablas; `.env` restaurado con el mismo hash y base de
 prueba eliminada.
+
+---
+
+## Fase 9 — Comandos del proyecto
+
+**Fecha:** 14-sep-2026
+
+`Makefile` delgado: delega en `composer`, `npm` y `docker compose`, que siguen siendo la única
+fuente de verdad. Cada objetivo lleva su comentario `##` y `make help` los lista.
+
+- **`make verify` corre lo mismo que el CI**: secretos, Pest, tipos, lint, build y end-to-end.
+  Su primera ejecución **se detuvo en `lint`** por el formato de las tablas de `AGENTS.md`:
+  la verificación haciendo su trabajo sobre el propio archivo que la describe
+- **`make up` levanta y migra**, y lo dice en su descripción. Ningún objetivo esconde efectos
+  secundarios
+- **`make setup` es el único que escribe el `.env`**, y solo si no existe; genera las claves
+  solo si están vacías
+- **`make verify-clean` no recrea la base**: borraría los datos locales. El caso de una base
+  vacía lo cubre el CI, y queda anotado en `docs/FUTURE.md`
+
+## Convención de arquitectura
+
+**Fecha:** 14-sep-2026
+
+`docs/ARCHITECTURE.md`. Decisión de fondo: **el núcleo hexagonal en `src/`, los controladores
+en `app/Http/Controllers`**. En `nexora-erp` los controladores viven dentro de cada contexto
+porque el proyecto nació de cero; Laravel ya impone su estructura y pelearla no aporta nada.
+
+`src/` registrado en tres sitios, porque olvidar cualquiera deja código sin revisar:
+`composer.json` (`Reformas\` → `src/`), `phpstan.neon` y la sección `source` de `phpunit.xml`.
+
+### Prueba de arquitectura, verificada en los dos sentidos
+
+`tests/Unit/ArchitectureTest.php` con `arch()` de Pest. **Con `src/` vacío pasaría sin comprobar
+nada**, así que se validó con clases temporales:
+
+| Caso                                         | Esperado          | Resultado                                                 |
+| -------------------------------------------- | ----------------- | --------------------------------------------------------- |
+| `Infrastructure` usa `Illuminate` (legítimo) | pasa              | 4 de 4 en verde                                           |
+| `Application` usa `Illuminate`               | falla nombrándolo | `application does not depend on the framework`            |
+| `Domain` usa `Infrastructure`                | falla nombrándolo | `domain does not depend on application or infrastructure` |
+
+**El comodín `Reformas\*\*\Domain` funciona.** Una regla sobre todo `Reformas` también detectaba
+la infracción, pero **bloquearía la infraestructura legítima**: por eso se aplica por capa.
+
+**Con `src/` vacío no pasa en silencio: rompe** con `The "src/*/*/Domain" directory does not
+exist`. No hay falso verde posible, pero la prueba no puede entrar al repositorio antes que el
+primer código de dominio: se commitea junto con el primer módulo.
