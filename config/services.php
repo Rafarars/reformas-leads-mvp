@@ -34,6 +34,20 @@ return [
         'url' => env('FAKE_CRM_URL', 'http://127.0.0.1:8080'),
     ],
 
+    // Clasificación de leads con IA. Sin API key, los leads van directo a revisión humana.
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),
+        'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
+        'timeout_seconds' => (int) env('GEMINI_TIMEOUT_SECONDS', 20),
+        'requests_per_minute' => (int) env('GEMINI_REQUESTS_PER_MINUTE', 8),
+    ],
+
+    'classification' => [
+        // Por debajo de esta confianza decide una persona.
+        'min_confidence' => (float) env('CLASSIFICATION_MIN_CONFIDENCE', 0.7),
+    ],
+
     'n8n' => [
         'base_url' => env('N8N_BASE_URL', 'http://127.0.0.1:5678'),
     ],

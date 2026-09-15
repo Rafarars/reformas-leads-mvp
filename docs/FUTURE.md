@@ -75,14 +75,14 @@ un día, la clave solo ocupa espacio.
 **Qué haría falta:** el trait `MassPrunable` de Laravel en `IdempotencyKey` y `model:prune` en el
 planificador. Implica tener el planificador corriendo, que hoy no está en el compose.
 
-## Flujos de n8n y clasificación con IA
+## Flujos de n8n y ampliar la clasificación
 
-**Qué:** los pasos 6 y 7 de la especificación. Clasificar cada lead con Gemini (tipo, prioridad,
-información que falta o contradictoria, resumen) y avisar al equipo por Telegram y Gmail desde n8n.
+**Qué:** el paso 7 (avisar al equipo por Telegram y Gmail desde n8n) y completar la clasificación con
+la información que falta o es contradictoria, un resumen y el borrador del mensaje al cliente.
 
-**Por qué no ahora:** hace falta la API key de Google AI Studio, y n8n recibirá los avisos del
-outbox en lugar del CRM simulado, cambiando solo `DELIVERY_WEBHOOK_URL`: la entrega, los reintentos y
-el circuito ya están resueltos.
+**Por qué no ahora:** n8n recibirá los avisos del outbox en lugar del CRM simulado cambiando solo
+`DELIVERY_WEBHOOK_URL`: la entrega, los reintentos y el circuito ya están resueltos. La ampliación
+reutiliza el mismo puerto `LeadClassifier` y la misma bandeja de revisión.
 
 ## Autenticar el CRM simulado
 
@@ -90,3 +90,14 @@ el circuito ya están resueltos.
 
 **Por qué no ahora:** solo escucha en `127.0.0.1` y en la red del compose, y no existe fuera de
 desarrollo. Si alguna vez se despliega una demo pública, sus controles no pueden quedar abiertos.
+
+## Evaluar la clasificación con un conjunto fijo
+
+**Qué:** una batería de leads ficticios con la clasificación esperada, corrida a mano contra el
+modelo real, que informe aciertos por categoría y urgencia.
+
+**Por qué:** cambiar el prompt o el modelo (ya pasó: `gemini-2.5-flash` dejó de estar disponible)
+puede empeorar la clasificación sin que ninguna prueba lo note, porque el CI no llama a la IA.
+
+**Qué haría falta:** un comando `leads:evaluate-classifier` fuera del CI y un umbral mínimo de
+aciertos antes de cambiar `GEMINI_MODEL`.

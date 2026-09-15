@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Classification\ClassificationGetController;
+use App\Http\Controllers\Classification\ClassificationReviewPostController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Reception\ReceptionGetController;
 use App\Http\Controllers\Reception\ReceptionLeadPostController;
@@ -15,6 +17,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('reception', ReceptionGetController::class)->name('reception');
     Route::post('reception/leads', ReceptionLeadPostController::class)->name('reception.leads.store');
+
+    Route::get('classification', ClassificationGetController::class)->name('classification');
+    Route::post('classification/{lead}/review', ClassificationReviewPostController::class)->name('classification.review');
 
     Route::get('resilience', ResilienceGetController::class)->name('resilience');
     Route::post('resilience/outage', ResilienceOutagePostController::class)->name('resilience.outage');

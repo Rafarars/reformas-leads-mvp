@@ -2,7 +2,9 @@
 
 namespace Reformas\Shared\Infrastructure\Laravel;
 
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Reformas\Delivery\Outbox\Domain\CircuitBreaker;
 use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
@@ -19,6 +21,15 @@ use Reformas\Integrations\ApiClient\Domain\ApiClientRepository;
 use Reformas\Integrations\ApiClient\Domain\ApiKeyGenerator;
 use Reformas\Integrations\ApiClient\Infrastructure\Persistence\Eloquent\EloquentApiClientRepository;
 use Reformas\Integrations\ApiClient\Infrastructure\RandomApiKeyGenerator;
+use Reformas\Leads\Classification\Application\Generate\ClassifyLeadOnLeadReceived;
+use Reformas\Leads\Classification\Application\Generate\LeadClassificationGenerator;
+use Reformas\Leads\Classification\Domain\ClassificationQueue;
+use Reformas\Leads\Classification\Domain\LeadClassificationRepository;
+use Reformas\Leads\Classification\Domain\LeadClassifier;
+use Reformas\Leads\Classification\Infrastructure\Gemini\GeminiLeadClassifier;
+use Reformas\Leads\Classification\Infrastructure\Persistence\Eloquent\EloquentLeadClassificationRepository;
+use Reformas\Leads\Classification\Infrastructure\Queue\ClassifyLeadJob;
+use Reformas\Leads\Classification\Infrastructure\Queue\LaravelClassificationQueue;
 use Reformas\Leads\Lead\Domain\LeadRepository;
 use Reformas\Leads\Lead\Infrastructure\Persistence\Eloquent\EloquentLeadRepository;
 use Reformas\Shared\Domain\Clock;
@@ -29,6 +40,7 @@ use Reformas\Shared\Domain\UuidGenerator;
 use Reformas\Shared\Infrastructure\LaravelTransaction;
 use Reformas\Shared\Infrastructure\LaravelUuidGenerator;
 use Reformas\Shared\Infrastructure\PhpRandom;
+use Reformas\Shared\Infrastructure\SubscribersEventBus;
 use Reformas\Shared\Infrastructure\SystemClock;
 
 // Único lugar donde se decide qué adaptador resuelve cada puerto.
@@ -42,15 +54,40 @@ final class ReformasServiceProvider extends ServiceProvider
         LeadRepository::class => EloquentLeadRepository::class,
         ApiClientRepository::class => EloquentApiClientRepository::class,
         ApiKeyGenerator::class => RandomApiKeyGenerator::class,
-        EventBus::class => OutboxEventBus::class,
         OutboxRepository::class => EloquentOutboxRepository::class,
         CircuitBreakerStore::class => CacheCircuitBreakerStore::class,
         Random::class => PhpRandom::class,
         DeliveryQueue::class => LaravelDeliveryQueue::class,
+        LeadClassificationRepository::class => EloquentLeadClassificationRepository::class,
+        ClassificationQueue::class => LaravelClassificationQueue::class,
     ];
 
     public function register(): void
     {
+        $this->app->bind(EventBus::class, fn (Application $app): EventBus => new SubscribersEventBus(
+            $app->make(OutboxEventBus::class),
+            [$app->make(ClassifyLeadOnLeadReceived::class)],
+        ));
+
+        $this->app->bind(LeadClassifier::class, function (): LeadClassifier {
+            $apiKey = config('services.gemini.api_key');
+
+            return new GeminiLeadClassifier(
+                is_string($apiKey) ? $apiKey : null,
+                config()->string('services.gemini.model'),
+                config()->string('services.gemini.base_url'),
+                config()->integer('services.gemini.timeout_seconds'),
+            );
+        });
+
+        $this->app->bind(LeadClassificationGenerator::class, fn (Application $app): LeadClassificationGenerator => new LeadClassificationGenerator(
+            $app->make(LeadRepository::class),
+            $app->make(LeadClassificationRepository::class),
+            $app->make(LeadClassifier::class),
+            $app->make(Clock::class),
+            config()->float('services.classification.min_confidence'),
+        ));
+
         $this->app->bind(MessageDeliverer::class, function (): MessageDeliverer {
             $url = config('services.delivery.webhook_url');
 
@@ -69,5 +106,10 @@ final class ReformasServiceProvider extends ServiceProvider
             config()->integer('services.delivery.failure_threshold'),
             config()->integer('services.delivery.cooldown_seconds'),
         ));
+    }
+
+    public function boot(): void
+    {
+        RateLimiter::for(ClassifyLeadJob::RATE_LIMITER, fn (): Limit => Limit::perMinute(config()->integer('services.gemini.requests_per_minute')));
     }
 }

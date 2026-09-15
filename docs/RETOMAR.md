@@ -16,7 +16,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 | ------------------------ | ----------------------------------------------------------------------------------- |
 | Repositorio              | github.com/Rafarars/reformas-leads-mvp (privado)                                    |
 | Último commit verificado | `58c4096`, CI en verde                                                              |
-| Pruebas                  | Pest 242 · PHPStan nivel 7 sin errores · Playwright 8                               |
+| Pruebas                  | Pest 309 · PHPStan nivel 7 sin errores · Playwright 9                               |
 | Servicios                | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                          |
 | URLs locales             | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control` |
 | Usuario de prueba        | `test@example.com` / `password`                                                     |
@@ -33,16 +33,21 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
       barrido `outbox:relay`
 - [x] **Paso 4** · API externa simulada (`docker/fake-crm`) con interruptor de caída
 - [x] **Paso 5** · Panel de Resiliencia: simular caída, inyectar leads, reintentar apartados
+- [x] **Paso 6** · Clasificación con IA (módulo `src/Leads/Classification`)
+    - [x] Puerto `LeadClassifier`; adaptador `GeminiLeadClassifier` con esquema de salida forzado y validado
+    - [x] Categoría, urgencia, confianza y **motivo**; a la IA solo va el tipo, la zona, el presupuesto y la descripción
+    - [x] Asíncrona: el evento `lead.received` encola `ClassifyLeadJob`; recibir nunca espera a la IA
+    - [x] Caída → reintentos con backoff (5 excepciones); respuesta inválida, sin key o reintentos agotados → revisión humana
+    - [x] Confianza < `CLASSIFICATION_MIN_CONFIDENCE` (0,7) → revisión humana
+    - [x] Pantalla **Clasificación**: bandeja de revisión para confirmar o corregir
+    - [x] Límite de peticiones por minuto a Gemini (`GEMINI_REQUESTS_PER_MINUTE`)
+    - [x] Probado contra Gemini real con leads ficticios (fuga urgente, lead vago, intento de inyección)
 
 ### Pendiente
 
-- [ ] **Paso 6 · Clasificación con IA** (Gemini 2.5 Flash)
-    - [ ] Rafael saca la API key en aistudio.google.com y **la agrega él al `.env`** (nunca en el chat)
-    - [ ] Puerto `LeadClassifier` en el dominio; adaptador de Gemini con salida de esquema validado
-    - [ ] Tipo, prioridad, información que falta o contradictoria, resumen y **motivo**
-    - [ ] Reintento si la respuesta no valida; si la IA falla, el lead sigue visible sin clasificar
-    - [ ] **Solo datos ficticios** (el tier gratuito puede usar los datos para entrenar)
-    - [ ] Borrador del mensaje al cliente **en revisión humana**, nunca enviado solo
+- [ ] **Paso 6b · Ampliar la clasificación** (quedó fuera del primer corte)
+    - [ ] Información que falta o contradictoria y un resumen del proyecto
+    - [ ] Borrador del mensaje al cliente **en revisión humana**, nunca enviado solo (encaja con n8n)
 - [ ] **Paso 7 · Flujos de n8n**
     - [ ] Workflow que recibe el aviso del outbox (cambiar `DELIVERY_WEBHOOK_URL` a n8n)
     - [ ] Aviso al equipo por **Telegram** (token de bot)
@@ -70,4 +75,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 - El formulario no lleva API key en el navegador: entra por una ruta web al mismo caso de uso
 - La entrega decide rendirse por antigüedad (24 h desde el último reintento manual), no por intentos
 - Herramientas de demo (`fake-crm`, `FakeCrmClient`, `DemoLeads`) fuera de `src/`
+- Modelo por defecto `gemini-3.5-flash`: `gemini-2.5-flash` ya no se ofrece a cuentas nuevas (404)
+- Los leads de la demo de resiliencia (`source=demo`) y los contactos repetidos **no se clasifican**
+- La clasificación vive en su propia tabla (`lead_classifications`), no en columnas de `leads`
 - Automatismos nuevos (Makefile, enganches) y reglas de `AGENTS.md`: **se proponen antes de escribirlos**

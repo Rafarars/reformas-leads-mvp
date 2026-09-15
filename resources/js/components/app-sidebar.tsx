@@ -4,6 +4,7 @@ import {
     BookOpen,
     FolderGit2,
     Inbox,
+    Sparkles,
     LayoutGrid,
 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
@@ -19,7 +20,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard, reception, resilience } from '@/routes';
+import { classification, dashboard, reception, resilience } from '@/routes';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -32,6 +33,11 @@ const mainNavItems: NavItem[] = [
         title: 'Recepción',
         href: reception(),
         icon: Inbox,
+    },
+    {
+        title: 'Clasificación',
+        href: classification(),
+        icon: Sparkles,
     },
     {
         title: 'Resiliencia',
