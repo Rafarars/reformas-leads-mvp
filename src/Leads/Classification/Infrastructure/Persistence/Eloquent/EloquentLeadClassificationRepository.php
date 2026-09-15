@@ -14,6 +14,8 @@ final class EloquentLeadClassificationRepository implements LeadClassificationRe
     public function save(LeadClassification $classification): void
     {
         $row = $classification->toPrimitives();
+        $row['missing_information'] = $this->encodeList($row['missing_information']);
+        $row['contradictions'] = $this->encodeList($row['contradictions']);
 
         LeadClassificationModel::query()->upsert([$row], ['lead_id'], array_keys(array_diff_key($row, ['lead_id' => true, 'created_at' => true])));
     }
@@ -54,12 +56,41 @@ final class EloquentLeadClassificationRepository implements LeadClassificationRe
             'urgency' => $this->nullableString($model->getAttribute('urgency')),
             'confidence' => $confidence === null ? null : (float) $confidence,
             'reason' => $this->nullableString($model->getAttribute('reason')),
+            'summary' => $this->nullableString($model->getAttribute('summary')),
+            'missing_information' => $this->decodeList($model->getAttribute('missing_information')),
+            'contradictions' => $this->decodeList($model->getAttribute('contradictions')),
+            'draft_message' => $this->nullableString($model->getAttribute('draft_message')),
+            'draft_status' => $this->nullableString($model->getAttribute('draft_status')),
+            'draft_approved_by' => $this->nullableString($model->getAttribute('draft_approved_by')),
+            'draft_approved_at' => $model->getAttribute('draft_approved_at') === null ? null : $this->toAtom($model->getAttribute('draft_approved_at')),
             'model' => $this->nullableString($model->getAttribute('model')),
             'review_reason' => $this->nullableString($model->getAttribute('review_reason')),
             'reviewed_by' => $this->nullableString($model->getAttribute('reviewed_by')),
             'created_at' => $this->toAtom($model->getAttribute('created_at')),
             'updated_at' => $this->toAtom($model->getAttribute('updated_at')),
         ]);
+    }
+
+    /**
+     * @param  ?list<string>  $items
+     */
+    private function encodeList(?array $items): ?string
+    {
+        return $items === null ? null : (string) json_encode($items, JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * @return ?list<string>
+     */
+    private function decodeList(mixed $value): ?array
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $items = json_decode((string) $value, true);
+
+        return is_array($items) ? array_values(array_map(strval(...), $items)) : [];
     }
 
     private function nullableString(mixed $value): ?string

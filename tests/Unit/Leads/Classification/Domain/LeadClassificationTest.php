@@ -2,11 +2,19 @@
 
 use Reformas\Leads\Classification\Domain\ClassificationConfidence;
 use Reformas\Leads\Classification\Domain\ClassificationReason;
+use Reformas\Leads\Classification\Domain\CustomerMessageApprovedDomainEvent;
+use Reformas\Leads\Classification\Domain\CustomerMessageDraft;
+use Reformas\Leads\Classification\Domain\CustomerMessageDraftNotPendingError;
 use Reformas\Leads\Classification\Domain\InvalidClassificationConfidenceError;
 use Reformas\Leads\Classification\Domain\InvalidClassificationReasonError;
+use Reformas\Leads\Classification\Domain\InvalidCustomerMessageDraftError;
+use Reformas\Leads\Classification\Domain\InvalidLeadFindingsError;
+use Reformas\Leads\Classification\Domain\InvalidProjectSummaryError;
 use Reformas\Leads\Classification\Domain\InvalidUrgencyError;
 use Reformas\Leads\Classification\Domain\InvalidWorkCategoryError;
 use Reformas\Leads\Classification\Domain\LeadClassification;
+use Reformas\Leads\Classification\Domain\LeadFindings;
+use Reformas\Leads\Classification\Domain\ProjectSummary;
 use Reformas\Leads\Classification\Domain\Urgency;
 use Reformas\Leads\Classification\Domain\WorkCategory;
 use Reformas\Leads\Lead\Domain\LeadId;
@@ -88,10 +96,59 @@ it('rejects values outside the contract', function (Closure $build, string $erro
     'too long reason' => [fn () => new ClassificationReason(str_repeat('a', 501)), InvalidClassificationReasonError::class],
     'unknown category' => [fn () => WorkCategory::fromValue('roof'), InvalidWorkCategoryError::class],
     'unknown urgency' => [fn () => Urgency::fromValue('asap'), InvalidUrgencyError::class],
+    'empty summary' => [fn () => new ProjectSummary(''), InvalidProjectSummaryError::class],
+    'too many findings' => [fn () => new LeadFindings(['a', 'b', 'c', 'd', 'e', 'f']), InvalidLeadFindingsError::class],
+    'blank finding' => [fn () => new LeadFindings(['Medidas', ' ']), InvalidLeadFindingsError::class],
+    'too long message' => [fn () => new CustomerMessageDraft(str_repeat('a', 1501)), InvalidCustomerMessageDraftError::class],
 ]);
 
 it('accepts the limits of the contract', function () {
     expect((new ClassificationConfidence(0.0))->value)->toBe(0.0)
         ->and((new ClassificationConfidence(1.0))->value)->toBe(1.0)
-        ->and((new ClassificationReason(str_repeat('a', 500)))->value)->toHaveLength(500);
+        ->and((new ClassificationReason(str_repeat('a', 500)))->value)->toHaveLength(500)
+        ->and((new LeadFindings(['a', 'b', 'c', 'd', 'e']))->items)->toHaveCount(5)
+        ->and((new LeadFindings([]))->items)->toBe([])
+        ->and((new CustomerMessageDraft(str_repeat('a', 1500)))->value)->toHaveLength(1500);
 });
+
+it('keeps the insights and a pending draft from the proposal', function () {
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable);
+
+    expect($classification->toPrimitives())->toMatchArray([
+        'summary' => 'Cambiar el plato de ducha por una fuga que afecta al vecino.',
+        'missing_information' => ['Medidas del baño', 'Fotos del estado actual'],
+        'contradictions' => [],
+        'draft_status' => 'pending',
+        'draft_approved_by' => null,
+    ])->and($classification->pullDomainEvents())->toBe([]);
+});
+
+it('approves the text the person settled on and announces it', function () {
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
+
+    $classification->approveDraft(new CustomerMessageDraft('Hola Ana, texto corregido.'), 'ana@example.com', new DateTimeImmutable('2026-09-15T12:00:00+00:00'));
+
+    $events = $classification->pullDomainEvents();
+
+    expect($classification->toPrimitives())->toMatchArray([
+        'draft_message' => 'Hola Ana, texto corregido.',
+        'draft_status' => 'approved',
+        'draft_approved_by' => 'ana@example.com',
+        'draft_approved_at' => '2026-09-15T12:00:00+00:00',
+    ])
+        ->and($events)->toHaveCount(1)
+        ->and($events[0])->toBeInstanceOf(CustomerMessageApprovedDomainEvent::class)
+        ->and($events[0]->body())->toBe(['lead_id' => CLASSIFIED_LEAD, 'message' => 'Hola Ana, texto corregido.', 'approved_by' => 'ana@example.com']);
+});
+
+it('refuses to approve twice or when there is no draft', function (Closure $classification) {
+    $classification()->approveDraft(new CustomerMessageDraft('Hola'), 'ana@example.com', new DateTimeImmutable);
+})->with([
+    'already approved' => [function () {
+        $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable);
+        $classification->approveDraft(new CustomerMessageDraft('Hola'), 'ana@example.com', new DateTimeImmutable);
+
+        return $classification;
+    }],
+    'no proposal' => [fn () => LeadClassification::unclassified(new LeadId(CLASSIFIED_LEAD), 'x', new DateTimeImmutable)],
+])->throws(CustomerMessageDraftNotPendingError::class);

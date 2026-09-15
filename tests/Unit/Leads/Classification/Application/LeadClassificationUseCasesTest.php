@@ -1,5 +1,7 @@
 <?php
 
+use Reformas\Leads\Classification\Application\ApproveDraft\CustomerMessageDraftApprover;
+use Reformas\Leads\Classification\Application\ApproveDraft\CustomerMessageDraftApproverRequest;
 use Reformas\Leads\Classification\Application\Fail\LeadClassificationFailureRecorder;
 use Reformas\Leads\Classification\Application\Fail\LeadClassificationFailureRecorderRequest;
 use Reformas\Leads\Classification\Application\Generate\ClassifyLeadOnLeadReceived;
@@ -12,6 +14,7 @@ use Reformas\Leads\Classification\Domain\ClassificationQueue;
 use Reformas\Leads\Classification\Domain\ClassifierNotConfiguredException;
 use Reformas\Leads\Classification\Domain\ClassifierUnavailableException;
 use Reformas\Leads\Classification\Domain\InvalidClassifierOutputException;
+use Reformas\Leads\Classification\Domain\InvalidCustomerMessageDraftError;
 use Reformas\Leads\Classification\Domain\InvalidWorkCategoryError;
 use Reformas\Leads\Classification\Domain\LeadClassificationNotFoundError;
 use Reformas\Leads\Classification\Domain\LeadClassifier;
@@ -26,6 +29,8 @@ use Tests\Unit\Leads\Classification\CallbackLeadClassifier;
 use Tests\Unit\Leads\Classification\ClassificationProposalMother;
 use Tests\Unit\Leads\Lead\Domain\LeadSubmissionMother;
 use Tests\Unit\Shared\FixedClock;
+use Tests\Unit\Shared\SpyEventBus;
+use Tests\Unit\Shared\SpyTransaction;
 
 const LEAD_TO_CLASSIFY = '00000000-0000-7000-8000-000000000001';
 
@@ -166,3 +171,25 @@ it('queues the classification of new leads only', function (array $body, bool $q
     'repeated contact' => [['source' => 'web-form', 'repeated' => true], false],
     'resilience demo lead' => [['source' => 'demo', 'repeated' => false], false],
 ]);
+
+it('approves the draft and publishes it inside the transaction', function () {
+    generateClassification($this, CallbackLeadClassifier::proposing(ClassificationProposalMother::create()));
+    $transaction = new SpyTransaction;
+    $events = new SpyEventBus;
+
+    (new CustomerMessageDraftApprover($this->classifications, $transaction, $events, $this->clock))(new CustomerMessageDraftApproverRequest(LEAD_TO_CLASSIFY, 'Hola Ana, ¿nos mandas fotos?', 'ana@example.com'));
+
+    expect(storedClassification($this))->toMatchArray(['draft_status' => 'approved', 'draft_message' => 'Hola Ana, ¿nos mandas fotos?'])
+        ->and($transaction->runs)->toBe(1)
+        ->and(array_map(static fn ($event): string => $event::eventName(), $events->published))->toBe(['lead.customer_message_approved']);
+});
+
+it('rejects an empty message before touching anything', function () {
+    generateClassification($this, CallbackLeadClassifier::proposing(ClassificationProposalMother::create()));
+    $transaction = new SpyTransaction;
+
+    expect(fn () => (new CustomerMessageDraftApprover($this->classifications, $transaction, new SpyEventBus, $this->clock))(new CustomerMessageDraftApproverRequest(LEAD_TO_CLASSIFY, '  ', 'ana@example.com')))
+        ->toThrow(InvalidCustomerMessageDraftError::class)
+        ->and($transaction->runs)->toBe(0)
+        ->and(storedClassification($this)['draft_status'])->toBe('pending');
+});

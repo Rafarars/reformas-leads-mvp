@@ -19,6 +19,21 @@ function leadToClassify(): LeadToClassify
     return new LeadToClassify('bathroom', 'Valencia', 8_500, 'Fuga bajo la ducha');
 }
 
+function validGeminiOutput(array $overrides = []): array
+{
+    return [
+        'category' => 'bathroom',
+        'urgency' => 'high',
+        'confidence' => 0.92,
+        'reason' => 'Fuga activa.',
+        'summary' => 'Cambiar el plato de ducha por una fuga.',
+        'missing_information' => ['Medidas del baño'],
+        'contradictions' => [],
+        'customer_message' => 'Hola {nombre}, gracias por escribirnos.',
+        ...$overrides,
+    ];
+}
+
 function geminiAnswer(mixed $output): array
 {
     return [
@@ -28,16 +43,18 @@ function geminiAnswer(mixed $output): array
 }
 
 it('turns a valid answer into a proposal', function () {
-    Http::fake(['gemini.test/*' => Http::response(geminiAnswer(['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 0.92, 'reason' => 'Fuga activa.']))]);
+    Http::fake(['gemini.test/*' => Http::response(geminiAnswer(validGeminiOutput()))]);
 
     $proposal = gemini()->classify(leadToClassify());
 
     expect([$proposal->category->value, $proposal->urgency->value, $proposal->confidence->value, $proposal->reason->value, $proposal->model])
-        ->toBe(['bathroom', 'high', 0.92, 'Fuga activa.', 'gemini-3.5-flash-001']);
+        ->toBe(['bathroom', 'high', 0.92, 'Fuga activa.', 'gemini-3.5-flash-001'])
+        ->and([$proposal->summary->value, $proposal->missingInformation->items, $proposal->contradictions->items, $proposal->customerMessage->value])
+        ->toBe(['Cambiar el plato de ducha por una fuga.', ['Medidas del baño'], [], 'Hola {nombre}, gracias por escribirnos.']);
 });
 
 it('sends the key in a header, forces the output schema and sends no personal data', function () {
-    Http::fake(['gemini.test/*' => Http::response(geminiAnswer(['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 1, 'reason' => 'Fuga.']))]);
+    Http::fake(['gemini.test/*' => Http::response(geminiAnswer(validGeminiOutput(['confidence' => 1])))]);
 
     gemini()->classify(leadToClassify());
 
@@ -49,6 +66,7 @@ it('sends the key in a header, forces the output schema and sends no personal da
             && ! str_contains($request->url(), 'test-key')
             && $body['generationConfig']['responseMimeType'] === 'application/json'
             && $body['generationConfig']['responseSchema']['properties']['category']['enum'] === ['kitchen', 'bathroom', 'full_home', 'facade', 'installations', 'other']
+            && $body['generationConfig']['responseSchema']['required'] === ['category', 'urgency', 'confidence', 'reason', 'summary', 'missing_information', 'contradictions', 'customer_message']
             && json_decode($body['contents'][0]['parts'][0]['text'], true) === [
                 'tipo_marcado_por_la_persona' => 'bathroom',
                 'zona' => 'Valencia',
@@ -75,10 +93,14 @@ it('rejects an answer outside the contract instead of guessing', function (mixed
     gemini()->classify(leadToClassify());
 })->with([
     'free text' => ['Creo que es un baño'],
-    'missing field' => [['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 0.9]],
-    'unknown category' => [['category' => 'roof', 'urgency' => 'high', 'confidence' => 0.9, 'reason' => 'x']],
-    'confidence as text' => [['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 'alta', 'reason' => 'x']],
-    'confidence above 1' => [['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 9, 'reason' => 'x']],
+    'missing field' => [array_diff_key(validGeminiOutput(), ['reason' => true])],
+    'unknown category' => [validGeminiOutput(['category' => 'roof'])],
+    'confidence as text' => [validGeminiOutput(['confidence' => 'alta'])],
+    'confidence above 1' => [validGeminiOutput(['confidence' => 9])],
+    'findings as text' => [validGeminiOutput(['missing_information' => 'Medidas'])],
+    'findings with numbers' => [validGeminiOutput(['contradictions' => [1, 2]])],
+    'too many findings' => [validGeminiOutput(['missing_information' => ['a', 'b', 'c', 'd', 'e', 'f']])],
+    'empty message' => [validGeminiOutput(['customer_message' => ''])],
 ])->throws(InvalidClassifierOutputException::class);
 
 it('rejects an answer without candidates, as when the content is blocked', function () {

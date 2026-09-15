@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia as Assert;
+use Reformas\Delivery\Outbox\Infrastructure\Queue\DeliverOutboxMessageJob;
 use Reformas\Leads\Classification\Domain\ClassifierUnavailableException;
 use Reformas\Leads\Classification\Infrastructure\Queue\ClassifyLeadJob;
 use Tests\Unit\Leads\Lead\LeadReceiverRequestMother;
@@ -49,7 +50,7 @@ it('queues the classification when a lead arrives, and not again for a repeated 
 });
 
 it('classifies the lead with the model through the queue job', function () {
-    Http::fake(['gemini.test/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 0.9, 'reason' => 'Fuga activa.'])]]]]]])]);
+    Http::fake(['gemini.test/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 0.9, 'reason' => 'Fuga activa.', 'summary' => 'Cambiar el plato de ducha.', 'missing_information' => ['Medidas'], 'contradictions' => [], 'customer_message' => 'Hola {nombre}, gracias.'])]]]]]])]);
     $leadId = receiveLeadFromPanel($this);
 
     runClassificationJob($leadId);
@@ -79,6 +80,7 @@ it('sends the lead to review when the job gives up', function () {
 it('sends guests to the login page', function () {
     $this->get(route('classification'))->assertRedirect(route('login'));
     $this->post(route('classification.review', ['lead' => '00000000-0000-7000-8000-000000000001']))->assertRedirect(route('login'));
+    $this->post(route('classification.draft.approve', ['lead' => '00000000-0000-7000-8000-000000000001']))->assertRedirect(route('login'));
 });
 
 it('shows the classifications next to the lead and records a human review', function () {
@@ -114,4 +116,26 @@ it('rejects a review with values outside the contract', function () {
     $this->actingAs($this->user)
         ->post(route('classification.review', ['lead' => $leadId]), ['category' => 'roof', 'urgency' => 'high'])
         ->assertSessionHasErrors('category');
+});
+
+it('approves the draft from the panel and leaves the notice in the outbox', function () {
+    Http::fake(['gemini.test/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 0.9, 'reason' => 'Fuga activa.', 'summary' => 'Cambiar el plato de ducha.', 'missing_information' => ['Medidas'], 'contradictions' => [], 'customer_message' => 'Hola {nombre}, gracias.'])]]]]]])]);
+    $leadId = receiveLeadFromPanel($this);
+    runClassificationJob($leadId);
+
+    $this->actingAs($this->user)
+        ->from(route('classification'))
+        ->post(route('classification.draft.approve', ['lead' => $leadId]), ['message' => 'Hola Ana, gracias. ¿Nos mandas fotos?'])
+        ->assertRedirect(route('classification'))
+        ->assertSessionHasNoErrors();
+
+    expect(DB::table('lead_classifications')->where('lead_id', $leadId)->first())
+        ->draft_status->toBe('approved')
+        ->draft_message->toBe('Hola Ana, gracias. ¿Nos mandas fotos?')
+        ->and(DB::table('outbox_messages')->where('event_name', 'lead.customer_message_approved')->where('aggregate_id', $leadId)->exists())->toBeTrue();
+    Queue::assertPushed(DeliverOutboxMessageJob::class, 2);
+
+    $this->actingAs($this->user)
+        ->post(route('classification.draft.approve', ['lead' => $leadId]), ['message' => 'Otra vez'])
+        ->assertSessionHasErrors(['message' => 'Este lead no tiene un borrador pendiente de aprobar.']);
 });

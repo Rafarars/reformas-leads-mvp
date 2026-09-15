@@ -1,5 +1,6 @@
 import { Head, router, usePage, usePoll } from '@inertiajs/react';
 import { useState } from 'react';
+import ClassificationDraftApprovePostController from '@/actions/App/Http/Controllers/Classification/ClassificationDraftApprovePostController';
 import ClassificationReviewPostController from '@/actions/App/Http/Controllers/Classification/ClassificationReviewPostController';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
@@ -23,6 +24,12 @@ type Classification = {
     urgency: string | null;
     confidence: number | null;
     reason: string | null;
+    summary: string | null;
+    missing_information: string[] | null;
+    contradictions: string[] | null;
+    draft_message: string | null;
+    draft_status: 'pending' | 'approved' | null;
+    draft_approved_by: string | null;
     model: string | null;
     review_reason: string | null;
     reviewed_by: string | null;
@@ -130,6 +137,91 @@ function Review({
     );
 }
 
+// El modelo no conoce el nombre: escribe el marcador y aquí se completa antes de revisarlo.
+const NAME_PLACEHOLDER = '{nombre}';
+
+function Findings({
+    title,
+    items,
+    name,
+}: {
+    title: string;
+    items: string[] | null;
+    name: string;
+}) {
+    if (items === null || items.length === 0) {
+        return null;
+    }
+
+    return (
+        <div data-test={`classification-${name}`}>
+            <p className="text-muted-foreground text-xs font-medium">{title}</p>
+            <ul className="list-disc pl-5 text-xs">
+                {items.map((item) => (
+                    <li key={item}>{item}</li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+function Draft({ item }: { item: Classification }) {
+    const [message, setMessage] = useState(
+        (item.draft_message ?? '').replaceAll(
+            NAME_PLACEHOLDER,
+            item.lead?.name ?? '',
+        ),
+    );
+
+    if (item.draft_message === null) {
+        return null;
+    }
+
+    const test = `classification-draft-${item.lead_id}`;
+    const approved = item.draft_status === 'approved';
+
+    return (
+        <div
+            className="space-y-2"
+            data-test={test}
+            data-state={item.draft_status ?? ''}
+        >
+            <p className="text-muted-foreground text-xs font-medium">
+                {approved
+                    ? `Mensaje al cliente aprobado por ${item.draft_approved_by}`
+                    : 'Borrador del mensaje al cliente (no se envía sin aprobación)'}
+            </p>
+            <textarea
+                rows={6}
+                value={approved ? (item.draft_message ?? '') : message}
+                readOnly={approved}
+                onChange={(event) => setMessage(event.target.value)}
+                data-test={`${test}-message`}
+                className="border-input focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-md border bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:ring-[3px]"
+            />
+            {!approved && (
+                <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={message.trim() === ''}
+                    data-test={`${test}-approve`}
+                    onClick={() =>
+                        router.post(
+                            ClassificationDraftApprovePostController.url({
+                                lead: item.lead_id,
+                            }),
+                            { message },
+                            { preserveScroll: true },
+                        )
+                    }
+                >
+                    Aprobar mensaje
+                </Button>
+            )}
+        </div>
+    );
+}
+
 export default function ClassificationIndex({
     classifications,
     categories,
@@ -168,7 +260,12 @@ export default function ClassificationIndex({
                 </p>
 
                 <InputError
-                    message={errors.category ?? errors.urgency ?? errors.review}
+                    message={
+                        errors.category ??
+                        errors.urgency ??
+                        errors.review ??
+                        errors.message
+                    }
                 />
 
                 <div className="space-y-3">
@@ -237,7 +334,22 @@ export default function ClassificationIndex({
                                         </span>
                                     )}
                                 </div>
+                                {item.summary && (
+                                    <p className="font-medium">
+                                        {item.summary}
+                                    </p>
+                                )}
                                 {item.reason && <p>{item.reason}</p>}
+                                <Findings
+                                    title="Falta para presupuestar"
+                                    items={item.missing_information}
+                                    name="missing"
+                                />
+                                <Findings
+                                    title="Datos que no cuadran"
+                                    items={item.contradictions}
+                                    name="contradictions"
+                                />
                                 {item.review_reason && (
                                     <p className="text-muted-foreground text-xs">
                                         {item.review_reason}
@@ -253,6 +365,7 @@ export default function ClassificationIndex({
                                     categories={categories}
                                     urgencies={urgencies}
                                 />
+                                <Draft item={item} />
                             </div>
                         </div>
                     ))}

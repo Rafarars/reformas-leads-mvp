@@ -10,6 +10,10 @@ final readonly class ClassificationProposal
         public Urgency $urgency,
         public ClassificationConfidence $confidence,
         public ClassificationReason $reason,
+        public ProjectSummary $summary,
+        public LeadFindings $missingInformation,
+        public LeadFindings $contradictions,
+        public CustomerMessageDraft $customerMessage,
         public string $model,
     ) {}
 }

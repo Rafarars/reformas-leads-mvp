@@ -16,7 +16,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 | ------------------------ | ----------------------------------------------------------------------------------- |
 | Repositorio              | github.com/Rafarars/reformas-leads-mvp (privado)                                    |
 | Último commit verificado | `58c4096`, CI en verde                                                              |
-| Pruebas                  | Pest 313 · PHPStan nivel 7 sin errores · Playwright 9                               |
+| Pruebas                  | Pest 336 · PHPStan nivel 7 sin errores · Playwright 9                               |
 | Servicios                | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                          |
 | URLs locales             | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control` |
 | Usuario de prueba        | `test@example.com` / `password`                                                     |
@@ -42,14 +42,19 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
     - [x] Pantalla **Clasificación**: bandeja de revisión para confirmar o corregir
     - [x] Límite de peticiones por minuto a Gemini (`GEMINI_REQUESTS_PER_MINUTE`)
     - [x] Probado contra Gemini real con leads ficticios (fuga urgente, lead vago, intento de inyección)
+- [x] **Paso 6b** · En la misma llamada a Gemini: resumen, lo que falta para presupuestar, datos que no cuadran y
+      **borrador del mensaje al cliente**
+    - [x] El modelo escribe `{nombre}`; el nombre real se pone en el panel y nunca viaja a la IA
+    - [x] El borrador queda `pending`; una persona lo edita y lo aprueba. Aprobar publica
+          `lead.customer_message_approved` en el outbox (lo recogerá n8n en el paso 7). **Nunca se envía solo**
+    - [x] Probado con Gemini real: detecta "3.000 € para reformar 120 m²" y "marcó cocina, pero es eléctrico"
 
 ### Pendiente
 
-- [ ] **Paso 6b · Ampliar la clasificación** (quedó fuera del primer corte)
-    - [ ] Información que falta o contradictoria y un resumen del proyecto
-    - [ ] Borrador del mensaje al cliente **en revisión humana**, nunca enviado solo (encaja con n8n)
 - [ ] **Paso 7 · Flujos de n8n**
     - [ ] Workflow que recibe el aviso del outbox (cambiar `DELIVERY_WEBHOOK_URL` a n8n)
+    - [ ] Tratar `lead.customer_message_approved`: el evento lleva el texto y quién aprobó, **no el email ni el
+          teléfono**; decidir si se añaden al evento o n8n los consulta
     - [ ] Aviso al equipo por **Telegram** (token de bot)
     - [ ] Resumen por **Gmail** (OAuth2)
     - [ ] Exportar los workflows como JSON al repositorio
