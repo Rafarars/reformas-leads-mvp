@@ -4,6 +4,7 @@ namespace Reformas\Leads\Lead\Domain;
 
 use DateTimeImmutable;
 use DateTimeInterface;
+use Reformas\Shared\Domain\AggregateRoot;
 
 /**
  * @phpstan-type LeadPrimitives array{
@@ -22,7 +23,7 @@ use DateTimeInterface;
  *     last_contact_at: string
  * }
  */
-final class Lead
+final class Lead extends AggregateRoot
 {
     /** @var list<LeadHistoryEntry> */
     private array $pendingHistory = [];
@@ -62,6 +63,7 @@ final class Lead
         );
 
         $lead->record(LeadHistoryType::Received, $submission->source, $now);
+        $lead->recordEvent(new LeadReceivedDomainEvent($id->value, $now, $lead->toPrimitives(), repeated: false));
 
         return $lead;
     }
@@ -76,6 +78,7 @@ final class Lead
         $this->lastContactAt = $now;
 
         $this->record(LeadHistoryType::RepeatedContact, $submission->source, $now);
+        $this->recordEvent(new LeadReceivedDomainEvent($this->id->value, $now, $this->toPrimitives(), repeated: true));
     }
 
     public function id(): LeadId

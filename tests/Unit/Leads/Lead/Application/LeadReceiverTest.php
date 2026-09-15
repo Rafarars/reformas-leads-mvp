@@ -8,13 +8,15 @@ use Reformas\Leads\Lead\Infrastructure\Persistence\InMemory\InMemoryLeadReposito
 use Tests\Unit\Leads\Lead\LeadReceiverRequestMother;
 use Tests\Unit\Shared\FixedClock;
 use Tests\Unit\Shared\SequentialUuidGenerator;
+use Tests\Unit\Shared\SpyEventBus;
 use Tests\Unit\Shared\SpyTransaction;
 
 beforeEach(function () {
     $this->leads = new InMemoryLeadRepository;
     $this->transaction = new SpyTransaction;
     $this->clock = new FixedClock;
-    $this->receive = new LeadReceiver($this->leads, $this->transaction, $this->clock, new SequentialUuidGenerator);
+    $this->events = new SpyEventBus;
+    $this->receive = new LeadReceiver($this->leads, $this->transaction, $this->clock, new SequentialUuidGenerator, $this->events);
 });
 
 function recordedHistory(InMemoryLeadRepository $leads, string $id): array
@@ -69,10 +71,28 @@ it('does not open a transaction when the data is invalid', function () {
     try {
         ($this->receive)(LeadReceiverRequestMother::create(phone: 'not a phone'));
     } catch (InvalidPhoneNumberError) {
-        expect($this->transaction->runs)->toBe(0);
+        expect($this->transaction->runs)->toBe(0)
+            ->and($this->events->published)->toBe([]);
 
         return;
     }
 
     throw new RuntimeException('Se esperaba InvalidPhoneNumberError');
+});
+
+it('publishes that a lead was received, and whether it was a repeated contact', function () {
+    $first = ($this->receive)(LeadReceiverRequestMother::create(phone: '600111222'));
+    ($this->receive)(LeadReceiverRequestMother::create(phone: '600111222'));
+
+    $events = array_map(static fn ($event): array => [
+        $event::eventName(),
+        $event->aggregateId,
+        $event->body()['repeated'],
+        $event->body()['contact_count'],
+    ], $this->events->published);
+
+    expect($events)->toBe([
+        ['lead.received', $first->id, false, 1],
+        ['lead.received', $first->id, true, 2],
+    ]);
 });

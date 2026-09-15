@@ -15,6 +15,7 @@ use Reformas\Leads\Lead\Domain\PhoneNumber;
 use Reformas\Leads\Lead\Domain\Register\LeadRegistrar;
 use Reformas\Leads\Lead\Domain\RenovationType;
 use Reformas\Shared\Domain\Clock;
+use Reformas\Shared\Domain\EventBus;
 use Reformas\Shared\Domain\Transaction;
 use Reformas\Shared\Domain\UuidGenerator;
 
@@ -27,6 +28,7 @@ final readonly class LeadReceiver
         private Transaction $transaction,
         private Clock $clock,
         private UuidGenerator $uuidGenerator,
+        private EventBus $eventBus,
     ) {
         $this->registrar = new LeadRegistrar($repository);
     }
@@ -53,6 +55,8 @@ final readonly class LeadReceiver
             );
 
             $this->repository->save($registration->lead);
+            // En la misma transacción: o se guardan el lead y su aviso, o ninguno de los dos.
+            $this->eventBus->publish(...$registration->lead->pullDomainEvents());
 
             $lead = $registration->lead->toPrimitives();
 
