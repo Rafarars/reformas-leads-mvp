@@ -66,7 +66,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 
 - Núcleo en `src/` (namespace `Reformas\`); controladores en `app/Http/Controllers`, uno por acción
 - Casos de uso `final readonly class` con `__invoke()`; errores `*Error` en dominio, `*Exception` en infraestructura
-- **Nunca citar Flexio** en el repositorio (sistema privado); Codely sí
+- **Nunca citar código privado de un empleador** en el repositorio; fuentes públicas como Codely sí
 - El formulario no lleva API key en el navegador: entra por una ruta web al mismo caso de uso
 - La entrega decide rendirse por antigüedad (24 h desde el último reintento manual), no por intentos
 - Herramientas de demo (`fake-crm`, `FakeCrmClient`, `DemoLeads`) fuera de `src/`
