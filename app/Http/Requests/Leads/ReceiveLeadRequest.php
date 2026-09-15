@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Http\Requests\Api\V1\Leads;
+namespace App\Http\Requests\Leads;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-final class StoreLeadRequest extends FormRequest
+final class ReceiveLeadRequest extends FormRequest
 {
     public function authorize(): bool
     {

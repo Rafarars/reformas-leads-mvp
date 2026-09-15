@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 import { baseURL } from './e2e/support/environment';
+import { STORAGE_STATE } from './e2e/support/users';
 
 export default defineConfig({
     testDir: './e2e/tests',
@@ -16,16 +17,23 @@ export default defineConfig({
     },
     projects: [
         {
+            name: 'setup',
+            testDir: './e2e/tests/setup',
+            testMatch: /.*\.setup\.ts/,
+            use: { ...devices['Desktop Chrome'] },
+        },
+        {
             name: 'ui',
             testDir: './e2e/tests/ui',
-            use: { ...devices['Desktop Chrome'] },
+            dependencies: ['setup'],
+            use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
         },
         {
             // Apaga contenedores: corre al final, para no tumbarle servicios a las demás.
             name: 'resilience',
             testDir: './e2e/tests/resilience',
             dependencies: ['ui'],
-            use: { ...devices['Desktop Chrome'] },
+            use: { ...devices['Desktop Chrome'], storageState: STORAGE_STATE },
         },
     ],
 });

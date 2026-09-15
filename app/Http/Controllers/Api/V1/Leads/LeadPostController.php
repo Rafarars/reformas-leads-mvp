@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1\Leads;
 
-use App\Http\Requests\Api\V1\Leads\StoreLeadRequest;
+use App\Http\Requests\Leads\ReceiveLeadRequest;
 use Illuminate\Http\JsonResponse;
 use Reformas\Leads\Lead\Application\Receive\LeadReceiver;
 use Reformas\Leads\Lead\Application\Receive\LeadReceiverRequest;
 
 final class LeadPostController
 {
-    public function __invoke(StoreLeadRequest $request, LeadReceiver $receive): JsonResponse
+    public function __invoke(ReceiveLeadRequest $request, LeadReceiver $receive): JsonResponse
     {
         $data = $request->validated();
 
