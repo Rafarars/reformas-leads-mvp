@@ -17,6 +17,8 @@ x-app-env: &app-env
     DB_HOST: db
     DB_PORT: 5432
     N8N_BASE_URL: http://n8n:5678
+    # La API externa simulada (paso 4). Mientras no exista, las entregas fallan y se reintentan.
+    DELIVERY_WEBHOOK_URL: http://fake-crm:8080/webhooks/leads
 
 services:
     app:
@@ -62,6 +64,26 @@ services:
         environment: *app-env
         volumes:
             - .:/app
+        depends_on:
+            app:
+                condition: service_healthy
+
+    scheduler:
+        build: *app-build
+        image: reformas-leads-app:dev
+        container_name: reformas-scheduler
+        restart: unless-stopped
+        # Ejecuta las tareas programadas, entre ellas el barrido del outbox cada minuto.
+        command: ['php', 'artisan', 'schedule:work']
+        environment: *app-env
+        volumes:
+            - .:/app
+        healthcheck:
+            test: ['CMD', 'php', 'artisan', 'db:monitor', '--databases=pgsql']
+            interval: 30s
+            timeout: 5s
+            retries: 3
+            start_period: 10s
         depends_on:
             app:
                 condition: service_healthy

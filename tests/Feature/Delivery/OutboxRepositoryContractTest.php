@@ -53,3 +53,25 @@ it('keeps the delivery state when saved again', function (OutboxRepository $repo
         ->and($stored['last_error'])->toBeNull()
         ->and($stored['delivered_at'])->toBe('2026-09-15T10:00:05+00:00');
 })->with('outbox repositories');
+
+it('finds the pending messages whose retry is overdue, oldest first', function (OutboxRepository $repository) {
+    $at = static fn (string $time): DateTimeImmutable => new DateTimeImmutable('2026-09-15T'.$time.'+00:00');
+    $message = static fn (int $number, string $time): OutboxMessage => OutboxMessage::create(
+        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'lead.received', '00000000-0000-7000-8000-0000000000aa', [], $at($time),
+    );
+
+    $late = $message(1, '10:05:00');
+    $later = $message(2, '10:01:00');
+    $notYet = $message(3, '10:09:30');
+    $delivered = $message(4, '10:00:00');
+    $delivered->markDelivered($at('10:00:01'));
+
+    foreach ([$late, $later, $notYet, $delivered] as $each) {
+        $repository->save($each);
+    }
+
+    $due = array_map(static fn (OutboxMessage $each): string => $each->id()->value, $repository->searchDue($at('10:09:00'), 10));
+
+    expect($due)->toBe([$later->id()->value, $late->id()->value])
+        ->and($repository->searchDue($at('10:09:00'), 1))->toHaveCount(1);
+})->with('outbox repositories');

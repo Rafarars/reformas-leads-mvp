@@ -32,13 +32,28 @@ class ProductionConfiguration
             $problems[] = 'DB_HOST apunta a localhost.';
         }
 
-        $n8nHost = parse_url(config()->string('services.n8n.base_url', ''), PHP_URL_HOST);
+        $n8nHost = $this->hostOf(config('services.n8n.base_url'));
 
         if (! is_string($n8nHost) || $this->isLoopback($n8nHost)) {
             $problems[] = 'N8N_BASE_URL falta o apunta a localhost.';
         }
 
+        $deliveryHost = $this->hostOf(config('services.delivery.webhook_url'));
+
+        if (! is_string($deliveryHost) || $this->isLoopback($deliveryHost)) {
+            $problems[] = 'DELIVERY_WEBHOOK_URL falta o apunta a localhost.';
+        }
+
         return $problems;
+    }
+
+    // Una variable sin definir llega como null, no como cadena vacía: config()->string() lanzaría una
+    // excepción en vez de informar el problema.
+    private function hostOf(mixed $url): ?string
+    {
+        $host = is_string($url) ? parse_url($url, PHP_URL_HOST) : null;
+
+        return is_string($host) ? $host : null;
     }
 
     private function isLoopback(string $host): bool

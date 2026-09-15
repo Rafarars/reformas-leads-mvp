@@ -26,6 +26,25 @@ final class EloquentOutboxRepository implements OutboxRepository
         return $model === null ? null : $this->toMessage($model);
     }
 
+    public function searchDue(DateTimeImmutable $dueBefore, int $limit): array
+    {
+        $rows = OutboxMessageModel::query()
+            ->where('status', 'pending')
+            ->whereNotNull('next_attempt_at')
+            ->where('next_attempt_at', '<=', $dueBefore->format(DateTimeInterface::ATOM))
+            ->orderBy('next_attempt_at')
+            ->limit($limit)
+            ->get();
+
+        $messages = [];
+
+        foreach ($rows as $row) {
+            $messages[] = $this->toMessage($row);
+        }
+
+        return $messages;
+    }
+
     private function toMessage(OutboxMessageModel $model): OutboxMessage
     {
         $payload = json_decode((string) $model->getAttribute('payload'), true, flags: JSON_THROW_ON_ERROR);

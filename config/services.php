@@ -18,6 +18,17 @@ return [
         'requests_per_minute' => (int) env('API_REQUESTS_PER_MINUTE', 60),
     ],
 
+    // Entrega de los eventos del outbox a un sistema externo.
+    'delivery' => [
+        'webhook_url' => env('DELIVERY_WEBHOOK_URL'),
+        'timeout_seconds' => (int) env('DELIVERY_TIMEOUT_SECONDS', 5),
+        'failure_threshold' => (int) env('DELIVERY_FAILURE_THRESHOLD', 5),
+        'cooldown_seconds' => (int) env('DELIVERY_COOLDOWN_SECONDS', 30),
+        'base_delay_seconds' => (int) env('DELIVERY_BASE_DELAY_SECONDS', 2),
+        'max_delay_seconds' => (int) env('DELIVERY_MAX_DELAY_SECONDS', 300),
+        'give_up_after_seconds' => (int) env('DELIVERY_GIVE_UP_AFTER_SECONDS', 86400),
+    ],
+
     'n8n' => [
         'base_url' => env('N8N_BASE_URL', 'http://127.0.0.1:5678'),
     ],

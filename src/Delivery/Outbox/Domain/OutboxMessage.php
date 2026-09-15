@@ -65,6 +65,11 @@ final class OutboxMessage
         return $this->createdAt;
     }
 
+    public function nextAttemptAt(): ?DateTimeImmutable
+    {
+        return $this->nextAttemptAt;
+    }
+
     public function isPending(): bool
     {
         return $this->status === OutboxStatus::Pending;

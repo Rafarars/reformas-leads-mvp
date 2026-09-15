@@ -129,3 +129,16 @@ it('survives a 30-minute outage and delivers the message once the service is bac
         ->and(count($deliverer->attemptedIds))->toBeLessThan(20)
         ->and(array_unique($deliverer->attemptedIds))->toBe([$id]);
 });
+
+it('does not attempt again before the scheduled retry time', function () {
+    $id = pendingMessage($this);
+    $deliverer = CallbackMessageDeliverer::alwaysFailing();
+    outboxDeliverer($this, $deliverer)(new OutboxMessageDelivererRequest($id));
+
+    $outcome = outboxDeliverer($this, $deliverer)(new OutboxMessageDelivererRequest($id));
+
+    expect($outcome->type)->toBe(DeliveryOutcomeType::RetryScheduled)
+        ->and($outcome->retryAt?->format(DATE_ATOM))->toBe('2026-09-15T10:00:02+00:00')
+        ->and($deliverer->attemptedIds)->toHaveCount(1)
+        ->and(storedMessage($this, $id)['attempts'])->toBe(1);
+});

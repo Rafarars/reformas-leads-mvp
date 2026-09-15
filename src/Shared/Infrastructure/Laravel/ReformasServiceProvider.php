@@ -2,8 +2,15 @@
 
 namespace Reformas\Shared\Infrastructure\Laravel;
 
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
+use Reformas\Delivery\Outbox\Domain\CircuitBreaker;
+use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
+use Reformas\Delivery\Outbox\Domain\MessageDeliverer;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
+use Reformas\Delivery\Outbox\Domain\RetryPolicy;
+use Reformas\Delivery\Outbox\Infrastructure\Cache\CacheCircuitBreakerStore;
+use Reformas\Delivery\Outbox\Infrastructure\Http\WebhookMessageDeliverer;
 use Reformas\Delivery\Outbox\Infrastructure\OutboxEventBus;
 use Reformas\Delivery\Outbox\Infrastructure\Persistence\Eloquent\EloquentOutboxRepository;
 use Reformas\Integrations\ApiClient\Domain\ApiClientRepository;
@@ -14,10 +21,12 @@ use Reformas\Leads\Lead\Domain\LeadRepository;
 use Reformas\Leads\Lead\Infrastructure\Persistence\Eloquent\EloquentLeadRepository;
 use Reformas\Shared\Domain\Clock;
 use Reformas\Shared\Domain\EventBus;
+use Reformas\Shared\Domain\Random;
 use Reformas\Shared\Domain\Transaction;
 use Reformas\Shared\Domain\UuidGenerator;
 use Reformas\Shared\Infrastructure\LaravelTransaction;
 use Reformas\Shared\Infrastructure\LaravelUuidGenerator;
+use Reformas\Shared\Infrastructure\PhpRandom;
 use Reformas\Shared\Infrastructure\SystemClock;
 
 // Único lugar donde se decide qué adaptador resuelve cada puerto.
@@ -33,5 +42,29 @@ final class ReformasServiceProvider extends ServiceProvider
         ApiKeyGenerator::class => RandomApiKeyGenerator::class,
         EventBus::class => OutboxEventBus::class,
         OutboxRepository::class => EloquentOutboxRepository::class,
+        CircuitBreakerStore::class => CacheCircuitBreakerStore::class,
+        Random::class => PhpRandom::class,
     ];
+
+    public function register(): void
+    {
+        $this->app->bind(MessageDeliverer::class, function (): MessageDeliverer {
+            $url = config('services.delivery.webhook_url');
+
+            return new WebhookMessageDeliverer(is_string($url) ? $url : null, config()->integer('services.delivery.timeout_seconds'));
+        });
+
+        $this->app->bind(RetryPolicy::class, fn (Application $app): RetryPolicy => new RetryPolicy(
+            $app->make(Random::class),
+            config()->integer('services.delivery.base_delay_seconds'),
+            config()->integer('services.delivery.max_delay_seconds'),
+            config()->integer('services.delivery.give_up_after_seconds'),
+        ));
+
+        $this->app->bind(CircuitBreaker::class, fn (Application $app): CircuitBreaker => new CircuitBreaker(
+            $app->make(CircuitBreakerStore::class),
+            config()->integer('services.delivery.failure_threshold'),
+            config()->integer('services.delivery.cooldown_seconds'),
+        ));
+    }
 }

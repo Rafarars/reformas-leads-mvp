@@ -29,6 +29,13 @@ final readonly class OutboxMessageDeliverer
         }
 
         $now = $this->clock->now();
+        $nextAttemptAt = $message->nextAttemptAt();
+
+        // Un trabajo duplicado (el del barrido) que llega antes de tiempo no adelanta el reintento.
+        if ($nextAttemptAt !== null && $nextAttemptAt > $now) {
+            return DeliveryOutcome::retryScheduled($nextAttemptAt);
+        }
+
         $openUntil = $this->circuitBreaker->openUntil($now);
 
         // Con el circuito abierto no se intenta ni se gasta un intento: se espera a que se cierre.
