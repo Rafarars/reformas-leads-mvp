@@ -31,6 +31,7 @@ up: ## Levanta los servicios (app, queue, db, n8n) y aplica las migraciones
 	@echo ""
 	@echo "  app    http://127.0.0.1:8010"
 	@echo "  n8n    http://localhost:5678"
+	@echo "  crm    http://127.0.0.1:8080/control   (API externa simulada)"
 
 down: ## Detiene los servicios (conserva los datos)
 	docker compose down

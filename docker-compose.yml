@@ -88,6 +88,28 @@ services:
             app:
                 condition: service_healthy
 
+    fake-crm:
+        image: node:22.23.2-alpine3.24
+        container_name: reformas-fake-crm
+        restart: unless-stopped
+        # API externa simulada con interruptor de caída (docker/fake-crm/server.mjs). Solo para la demo.
+        command: ['node', '/srv/server.mjs']
+        user: node
+        volumes:
+            - ./docker/fake-crm:/srv:ro
+        ports:
+            - '${BIND_HOST:-127.0.0.1}:${FAKE_CRM_PORT:-8080}:8080'
+        healthcheck:
+            test:
+                - CMD
+                - node
+                - -e
+                - "fetch('http://localhost:8080/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+            interval: 10s
+            timeout: 5s
+            retries: 6
+            start_period: 5s
+
     db:
         image: postgres:17-alpine
         container_name: reformas-db

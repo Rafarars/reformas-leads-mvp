@@ -2,7 +2,8 @@ import { execFileSync } from 'node:child_process';
 
 export const baseURL = process.env.E2E_BASE_URL ?? 'http://127.0.0.1:8010';
 
-const REQUIRED_SERVICES = ['app', 'db', 'n8n'];
+// queue entrega los avisos y fake-crm los recibe: sin ellos, la prueba de caída esperaría para siempre.
+const REQUIRED_SERVICES = ['app', 'db', 'n8n', 'queue', 'fake-crm'];
 
 // Las pruebas de resiliencia apagan contenedores: solo corren contra el entorno local.
 export function assertDisposableEnvironment(): void {

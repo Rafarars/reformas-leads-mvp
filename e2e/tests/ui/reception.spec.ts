@@ -1,23 +1,7 @@
 import { test } from '@playwright/test';
 import { DashboardPage } from '../../pages/dashboard-page';
-import type { LeadForm } from '../../pages/reception-page';
 import { ReceptionPage } from '../../pages/reception-page';
-
-// La base de las pruebas end-to-end no se borra entre corridas: cada ejecución crea su propia
-// persona, o la segunda corrida la encontraría ya registrada.
-function uniqueLead(): LeadForm {
-    const seed = `${Date.now()}${Math.floor(Math.random() * 1000)}`.slice(-8);
-
-    return {
-        name: 'Lucía Fernández',
-        phone: `6${seed}`,
-        email: `lucia.${seed}@example.com`,
-        renovationType: 'bathroom',
-        zone: 'Valencia',
-        budget: 8500,
-        description: 'Cambiar la bañera por un plato de ducha',
-    };
-}
+import { uniqueLead } from '../../support/leads';
 
 test.beforeEach(async ({ page }) => {
     const dashboard = new DashboardPage(page);
