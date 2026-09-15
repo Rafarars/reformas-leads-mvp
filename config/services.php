@@ -37,10 +37,10 @@ return [
     // Clasificación de leads con IA. Sin API key, los leads van directo a revisión humana.
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),
-        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash'),
+        'model' => env('GEMINI_MODEL', 'gemini-3.5-flash-lite'),
         'base_url' => env('GEMINI_BASE_URL', 'https://generativelanguage.googleapis.com/v1beta'),
         'timeout_seconds' => (int) env('GEMINI_TIMEOUT_SECONDS', 20),
-        'requests_per_minute' => (int) env('GEMINI_REQUESTS_PER_MINUTE', 8),
+        'requests_per_minute' => (int) env('GEMINI_REQUESTS_PER_MINUTE', 12),
     ],
 
     'classification' => [

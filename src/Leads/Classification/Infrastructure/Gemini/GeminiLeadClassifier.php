@@ -53,8 +53,15 @@ final readonly class GeminiLeadClassifier implements LeadClassifier
             throw new ClassifierUnavailableException('Sin conexión con Gemini: '.$exception->getMessage(), previous: $exception);
         }
 
+        // 429 (cuota por minuto o por día), 408 y 5xx se arreglan solos esperando. Cualquier otro 4xx
+        // (key inválida, modelo retirado, parámetro no admitido) fallaría igual en cada reintento.
         if (! $response->successful()) {
-            throw new ClassifierUnavailableException('Gemini respondió HTTP '.$response->status());
+            $status = $response->status();
+            $message = 'Gemini respondió HTTP '.$status;
+
+            throw in_array($status, [408, 429], true) || $status >= 500
+                ? new ClassifierUnavailableException($message)
+                : new ClassifierNotConfiguredException($message);
         }
 
         $text = $response->json('candidates.0.content.parts.0.text');
@@ -93,8 +100,9 @@ final readonly class GeminiLeadClassifier implements LeadClassifier
                     ],
                     'required' => ['category', 'urgency', 'confidence', 'reason'],
                 ],
-                // Clasificar no necesita razonamiento largo: sin él responde antes y gasta menos cuota.
-                'thinkingConfig' => ['thinkingBudget' => 0],
+                // Clasificar no necesita razonamiento largo: responde antes y gasta menos cuota.
+                // Los modelos Gemini 3 usan thinkingLevel; thinkingBudget lo rechazan con un 400.
+                'thinkingConfig' => ['thinkingLevel' => 'minimal'],
             ],
         ];
     }

@@ -85,7 +85,7 @@ it('sends the lead to a person when the model answers outside the contract', fun
 it('sends the lead to a person at once when there is no model configured', function () {
     generateClassification($this, CallbackLeadClassifier::throwing(new ClassifierNotConfiguredException('Falta GEMINI_API_KEY.')));
 
-    expect(storedClassification($this))->toMatchArray(['status' => 'needs_review', 'review_reason' => 'La clasificación automática no está configurada.']);
+    expect(storedClassification($this))->toMatchArray(['status' => 'needs_review', 'review_reason' => 'La clasificación automática no está configurada o el modelo rechazó la petición.']);
 });
 
 it('lets a temporary outage bubble up so the queue retries, saving nothing', function () {

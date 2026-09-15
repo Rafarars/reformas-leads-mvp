@@ -45,7 +45,7 @@ final readonly class LeadClassificationGenerator
         } catch (InvalidClassifierOutputException) {
             $classification = LeadClassification::unclassified($leadId, 'La IA respondió algo que no se pudo validar.', $this->clock->now());
         } catch (ClassifierNotConfiguredException) {
-            $classification = LeadClassification::unclassified($leadId, 'La clasificación automática no está configurada.', $this->clock->now());
+            $classification = LeadClassification::unclassified($leadId, 'La clasificación automática no está configurada o el modelo rechazó la petición.', $this->clock->now());
         }
 
         $this->classifications->save($classification);

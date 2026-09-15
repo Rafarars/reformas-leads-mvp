@@ -16,7 +16,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 | ------------------------ | ----------------------------------------------------------------------------------- |
 | Repositorio              | github.com/Rafarars/reformas-leads-mvp (privado)                                    |
 | Último commit verificado | `58c4096`, CI en verde                                                              |
-| Pruebas                  | Pest 309 · PHPStan nivel 7 sin errores · Playwright 9                               |
+| Pruebas                  | Pest 313 · PHPStan nivel 7 sin errores · Playwright 9                               |
 | Servicios                | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                          |
 | URLs locales             | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control` |
 | Usuario de prueba        | `test@example.com` / `password`                                                     |
@@ -75,7 +75,8 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 - El formulario no lleva API key en el navegador: entra por una ruta web al mismo caso de uso
 - La entrega decide rendirse por antigüedad (24 h desde el último reintento manual), no por intentos
 - Herramientas de demo (`fake-crm`, `FakeCrmClient`, `DemoLeads`) fuera de `src/`
-- Modelo por defecto `gemini-3.5-flash`: `gemini-2.5-flash` ya no se ofrece a cuentas nuevas (404)
+- Modelo por defecto `gemini-3.5-flash-lite`: en el tier gratuito da 15 peticiones/min y 500/día (Flash solo 5 y 20) y clasificó igual de bien. `gemini-2.5-flash` ya no se ofrece a cuentas nuevas (404)
+- Un 4xx de Gemini que no sea 408/429 no se reintenta (key, modelo o parámetro): va directo a revisión
 - Los leads de la demo de resiliencia (`source=demo`) y los contactos repetidos **no se clasifican**
 - La clasificación vive en su propia tabla (`lead_classifications`), no en columnas de `leads`
 - Automatismos nuevos (Makefile, enganches) y reglas de `AGENTS.md`: **se proponen antes de escribirlos**

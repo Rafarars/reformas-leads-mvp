@@ -65,6 +65,7 @@ it('reports an outage the queue can retry', function (Closure $fake) {
 })->with([
     'server error' => [fn () => ['gemini.test/*' => Http::response([], 503)]],
     'quota exceeded' => [fn () => ['gemini.test/*' => Http::response([], 429)]],
+    'timeout on their side' => [fn () => ['gemini.test/*' => Http::response([], 408)]],
     'no connection' => [fn () => fn () => throw new ConnectionException('Connection refused')],
 ])->throws(ClassifierUnavailableException::class);
 
@@ -97,3 +98,13 @@ it('does not call anything without an API key', function (?string $key) {
 
     throw new RuntimeException('Se esperaba ClassifierNotConfiguredException');
 })->with(['null' => [null], 'empty' => ['']]);
+
+it('does not retry a request the model rejects, since it would fail the same way', function (int $status) {
+    Http::fake(['gemini.test/*' => Http::response([], $status)]);
+
+    gemini()->classify(leadToClassify());
+})->with([
+    'invalid argument' => [400],
+    'invalid key' => [403],
+    'retired model' => [404],
+])->throws(ClassifierNotConfiguredException::class);
