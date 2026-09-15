@@ -4,7 +4,7 @@ Portafolio público de Rafael Rodríguez Sosa: recepción y clasificación de le
 que **no pierde un lead aunque un servicio externo esté caído**. Todo lo que entre al
 repositorio lo va a leer un reclutador técnico.
 
-**Empezar aquí:** [`docs/spec.md`](docs/spec.md) (qué se construye),
+**Empezar aquí:** [`docs/RETOMAR.md`](docs/RETOMAR.md) (estado y checklist), [`docs/spec.md`](docs/spec.md) (qué se construye),
 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (cómo se organiza) y
 [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md) (por qué el entorno es como es).
 
@@ -113,6 +113,7 @@ encadenan dentro del propio script.
 | `docs/ARCHITECTURE.md` | Convención hexagonal: estructura, nombres y reglas                   |
 | `docs/BOOTSTRAP.md`    | Bitácora del arranque y de cada tropiezo                             |
 | `docs/FUTURE.md`       | Mejoras diferidas, con su porqué                                     |
+| `docs/RETOMAR.md`      | Estado actual y checklist de lo que falta                            |
 | `README.md`            | Portada del portafolio                                               |
 
 Las decisiones con su porqué se guardan además en Engram, proyecto `reformas-leads-mvp`.
