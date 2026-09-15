@@ -16,7 +16,8 @@ use DateTimeInterface;
  *     next_attempt_at: ?string,
  *     last_error: ?string,
  *     created_at: string,
- *     delivered_at: ?string
+ *     delivered_at: ?string,
+ *     last_replayed_at: ?string
  * }
  */
 final class OutboxMessage
@@ -35,6 +36,7 @@ final class OutboxMessage
         private ?string $lastError,
         private readonly DateTimeImmutable $createdAt,
         private ?DateTimeImmutable $deliveredAt,
+        private ?DateTimeImmutable $lastReplayedAt,
     ) {}
 
     /**
@@ -47,7 +49,7 @@ final class OutboxMessage
         array $payload,
         DateTimeImmutable $now,
     ): self {
-        return new self($id, $eventName, $aggregateId, $payload, OutboxStatus::Pending, 0, $now, null, $now, null);
+        return new self($id, $eventName, $aggregateId, $payload, OutboxStatus::Pending, 0, $now, null, $now, null, null);
     }
 
     public function id(): OutboxMessageId
@@ -60,14 +62,21 @@ final class OutboxMessage
         return $this->attempts;
     }
 
-    public function createdAt(): DateTimeImmutable
+    // Desde cuándo cuenta el plazo para rendirse: un reintento manual abre una ventana nueva, o un
+    // mensaje viejo se volvería a apartar al primer fallo.
+    public function retryWindowStartedAt(): DateTimeImmutable
     {
-        return $this->createdAt;
+        return $this->lastReplayedAt ?? $this->createdAt;
     }
 
     public function nextAttemptAt(): ?DateTimeImmutable
     {
         return $this->nextAttemptAt;
+    }
+
+    public function isDead(): bool
+    {
+        return $this->status === OutboxStatus::Dead;
     }
 
     public function isPending(): bool
@@ -104,6 +113,7 @@ final class OutboxMessage
     {
         $this->status = OutboxStatus::Pending;
         $this->nextAttemptAt = $now;
+        $this->lastReplayedAt = $now;
     }
 
     /**
@@ -122,6 +132,7 @@ final class OutboxMessage
             $primitives['last_error'],
             new DateTimeImmutable($primitives['created_at']),
             $primitives['delivered_at'] === null ? null : new DateTimeImmutable($primitives['delivered_at']),
+            $primitives['last_replayed_at'] === null ? null : new DateTimeImmutable($primitives['last_replayed_at']),
         );
     }
 
@@ -141,6 +152,7 @@ final class OutboxMessage
             'last_error' => $this->lastError,
             'created_at' => $this->createdAt->format(DateTimeInterface::ATOM),
             'delivered_at' => $this->deliveredAt?->format(DateTimeInterface::ATOM),
+            'last_replayed_at' => $this->lastReplayedAt?->format(DateTimeInterface::ATOM),
         ];
     }
 }

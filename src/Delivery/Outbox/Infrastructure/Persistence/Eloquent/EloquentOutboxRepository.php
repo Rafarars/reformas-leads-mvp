@@ -45,6 +45,33 @@ final class EloquentOutboxRepository implements OutboxRepository
         return $messages;
     }
 
+    public function countByStatus(): array
+    {
+        $totals = OutboxMessageModel::query()
+            ->selectRaw('status, count(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return [
+            'pending' => (int) ($totals['pending'] ?? 0),
+            'delivered' => (int) ($totals['delivered'] ?? 0),
+            'dead' => (int) ($totals['dead'] ?? 0),
+        ];
+    }
+
+    public function searchLatest(int $limit): array
+    {
+        $rows = OutboxMessageModel::query()->orderByDesc('created_at')->orderByDesc('id')->limit($limit)->get();
+
+        $messages = [];
+
+        foreach ($rows as $row) {
+            $messages[] = $this->toMessage($row);
+        }
+
+        return $messages;
+    }
+
     private function toMessage(OutboxMessageModel $model): OutboxMessage
     {
         $payload = json_decode((string) $model->getAttribute('payload'), true, flags: JSON_THROW_ON_ERROR);
@@ -66,6 +93,7 @@ final class EloquentOutboxRepository implements OutboxRepository
             'last_error' => $lastError === null ? null : (string) $lastError,
             'created_at' => (string) $this->nullableAtom($model->getAttribute('created_at')),
             'delivered_at' => $this->nullableAtom($model->getAttribute('delivered_at')),
+            'last_replayed_at' => $this->nullableAtom($model->getAttribute('last_replayed_at')),
         ]);
     }
 

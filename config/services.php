@@ -29,6 +29,11 @@ return [
         'give_up_after_seconds' => (int) env('DELIVERY_GIVE_UP_AFTER_SECONDS', 86400),
     ],
 
+    // API externa simulada con interruptor de caída (docker/fake-crm), solo para la demo de resiliencia.
+    'fake_crm' => [
+        'url' => env('FAKE_CRM_URL', 'http://127.0.0.1:8080'),
+    ],
+
     'n8n' => [
         'base_url' => env('N8N_BASE_URL', 'http://127.0.0.1:5678'),
     ],

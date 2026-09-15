@@ -6,8 +6,8 @@ use DateInterval;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
+use Reformas\Delivery\Outbox\Domain\DeliveryQueue;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
-use Reformas\Delivery\Outbox\Infrastructure\Queue\DeliverOutboxMessageJob;
 use Reformas\Shared\Domain\Clock;
 
 #[Signature('outbox:relay')]
@@ -19,14 +19,14 @@ class RelayOutbox extends Command
 
     private const BATCH_SIZE = 100;
 
-    public function handle(OutboxRepository $outbox, Clock $clock): int
+    public function handle(OutboxRepository $outbox, DeliveryQueue $queue, Clock $clock): int
     {
         // Red de seguridad: si el proceso murió entre guardar y despachar, o la cola perdió el trabajo,
         // el mensaje sigue en la base y este barrido lo recupera.
         $due = $outbox->searchDue($clock->now()->sub(new DateInterval('PT'.self::GRACE_SECONDS.'S')), self::BATCH_SIZE);
 
         foreach ($due as $message) {
-            DeliverOutboxMessageJob::dispatch($message->id()->value);
+            $queue->enqueue($message->id());
         }
 
         $this->info(sprintf('%d mensajes vueltos a despachar.', count($due)));

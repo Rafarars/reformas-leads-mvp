@@ -44,4 +44,31 @@ final class InMemoryOutboxRepository implements OutboxRepository
             array_slice($due, 0, $limit),
         );
     }
+
+    public function countByStatus(): array
+    {
+        $counts = ['pending' => 0, 'delivered' => 0, 'dead' => 0];
+
+        foreach ($this->messages as $message) {
+            match ($message['status']) {
+                'pending' => $counts['pending']++,
+                'delivered' => $counts['delivered']++,
+                default => $counts['dead']++,
+            };
+        }
+
+        return $counts;
+    }
+
+    public function searchLatest(int $limit): array
+    {
+        $messages = array_values($this->messages);
+
+        usort($messages, static fn (array $a, array $b): int => [$b['created_at'], $b['id']] <=> [$a['created_at'], $a['id']]);
+
+        return array_map(
+            static fn (array $message): OutboxMessage => OutboxMessage::fromPrimitives($message),
+            array_slice($messages, 0, $limit),
+        );
+    }
 }

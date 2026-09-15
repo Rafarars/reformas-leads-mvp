@@ -142,3 +142,18 @@ it('does not attempt again before the scheduled retry time', function () {
         ->and($deliverer->attemptedIds)->toHaveCount(1)
         ->and(storedMessage($this, $id)['attempts'])->toBe(1);
 });
+
+// Un mensaje apartado hace días y reintentado a mano no puede apartarse de nuevo al primer fallo.
+it('gives a replayed message a new retry window', function () {
+    $id = pendingMessage($this);
+    $this->clock->advance('+2 days');
+    $message = $this->outbox->search(new OutboxMessageId($id));
+    $message->markDead('HTTP 500');
+    $message->replay($this->clock->now());
+    $this->outbox->save($message);
+
+    $outcome = outboxDeliverer($this, CallbackMessageDeliverer::alwaysFailing())(new OutboxMessageDelivererRequest($id));
+
+    expect($outcome->type)->toBe(DeliveryOutcomeType::RetryScheduled)
+        ->and(storedMessage($this, $id)['status'])->toBe('pending');
+});

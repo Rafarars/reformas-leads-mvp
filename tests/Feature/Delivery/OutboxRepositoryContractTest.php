@@ -75,3 +75,44 @@ it('finds the pending messages whose retry is overdue, oldest first', function (
     expect($due)->toBe([$later->id()->value, $late->id()->value])
         ->and($repository->searchDue($at('10:09:00'), 1))->toHaveCount(1);
 })->with('outbox repositories');
+
+it('counts the messages by status', function (OutboxRepository $repository) {
+    $at = new DateTimeImmutable('2026-09-15T10:00:00+00:00');
+    $message = static fn (int $number): OutboxMessage => OutboxMessage::create(
+        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'lead.received', '00000000-0000-7000-8000-0000000000aa', [], $at,
+    );
+
+    $pending = $message(1);
+    $delivered = $message(2);
+    $delivered->markDelivered($at);
+    $dead = $message(3);
+    $dead->markDead('HTTP 500');
+
+    foreach ([$pending, $delivered, $dead, $message(4)] as $each) {
+        $repository->save($each);
+    }
+
+    expect($repository->countByStatus())->toBe(['pending' => 2, 'delivered' => 1, 'dead' => 1]);
+})->with('outbox repositories');
+
+it('lists the latest messages first', function (OutboxRepository $repository) {
+    foreach (['10:00:00', '10:02:00', '10:01:00'] as $number => $time) {
+        $repository->save(OutboxMessage::create(
+            new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number + 1)), 'lead.received', '00000000-0000-7000-8000-0000000000aa', [],
+            new DateTimeImmutable('2026-09-15T'.$time.'+00:00'),
+        ));
+    }
+
+    $latest = array_map(static fn (OutboxMessage $each): string => $each->id()->value, $repository->searchLatest(2));
+
+    expect($latest)->toBe(['00000000-0000-7000-8000-000000000002', '00000000-0000-7000-8000-000000000003']);
+})->with('outbox repositories');
+
+it('keeps the time of the last manual replay', function (OutboxRepository $repository) {
+    $message = contractOutboxMessage();
+    $message->markDead('HTTP 500');
+    $message->replay(new DateTimeImmutable('2026-09-16T12:00:00+00:00'));
+    $repository->save($message);
+
+    expect($repository->search($message->id())?->toPrimitives()['last_replayed_at'])->toBe('2026-09-16T12:00:00+00:00');
+})->with('outbox repositories');

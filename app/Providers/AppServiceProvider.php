@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\FakeCrmClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(FakeCrmClient::class, fn (): FakeCrmClient => new FakeCrmClient(config()->string('services.fake_crm.url')));
     }
 
     /**

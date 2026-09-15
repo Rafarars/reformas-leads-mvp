@@ -15,9 +15,9 @@ construida, no contada.
 | ----------------------------------------------------------------------------- | --------- |
 | Fundación: Docker, salud, suite de pruebas, CI, configuración validada        | **Hecho** |
 | API pública `v1` de ingesta (API key por origen, idempotencia, rate limiting) | **Hecho** |
-| Outbox, reintentos con backoff, circuit breaker y DLQ                         | Pendiente |
+| Outbox, reintentos con backoff, circuit breaker y DLQ                         | **Hecho** |
 | Clasificación con IA y flujos de n8n (Telegram, Gmail)                        | Pendiente |
-| Panel de resiliencia con simulación de caídas                                 | Pendiente |
+| Panel de resiliencia con simulación de caídas                                 | **Hecho** |
 
 La especificación completa está en [`docs/spec.md`](docs/spec.md).
 
@@ -31,6 +31,13 @@ La especificación completa está en [`docs/spec.md`](docs/spec.md).
   verifica apagando el contenedor de verdad.
 - **Falla en cerrado**: la imagen de producción no arranca si la configuración es inválida.
 - **Cada guarda se ha visto saltar**, no solo el camino feliz.
+- **Ningún aviso se pierde si el destino cae.** El lead y su aviso se guardan en la misma
+  transacción (outbox); la entrega se reintenta con backoff exponencial y jitter, un circuit
+  breaker deja de insistir contra un destino caído, y lo que agota su plazo se aparta para
+  reprocesarlo a mano. En una caída simulada de 30 minutos: **15 o 16 llamadas** al destino, frente
+  a 1.800 reintentando cada segundo.
+- **El panel de Resiliencia lo demuestra en vivo**: se tumba el CRM simulado, se inyectan leads, la
+  cola crece y se drena sola al restablecerlo, sin duplicados.
 
 ## Arquitectura
 

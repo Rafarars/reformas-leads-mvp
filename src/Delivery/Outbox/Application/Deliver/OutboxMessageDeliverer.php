@@ -57,7 +57,7 @@ final readonly class OutboxMessageDeliverer
         $reason = (string) $result->failureReason;
 
         // Apartado, nunca descartado: queda con su último error para reprocesarlo a mano.
-        if ($this->retryPolicy->shouldGiveUp($message->createdAt(), $now)) {
+        if ($this->retryPolicy->shouldGiveUp($message->retryWindowStartedAt(), $now)) {
             $message->markDead($reason);
             $this->outbox->save($message);
 

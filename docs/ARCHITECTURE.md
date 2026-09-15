@@ -246,3 +246,40 @@ Dos defensas:
 - **Falla en cerrado**: el limitador y la idempotencia lanzan `LogicException` si no hay cliente.
   Verificado quitando el orden: la prueba pasa a responder 500 con ese mensaje en vez de mezclar
   clientes en silencio
+
+---
+
+## Outbox y entrega
+
+Contexto `src/Delivery/Outbox`. La pregunta que responde: _¿cómo no se pierde un aviso si el
+sistema externo cae durante minutos?_
+
+```
+LeadReceiver ─ transacción ─┬─ guarda el lead
+                            └─ EventBus → OutboxEventBus → outbox_messages   (el aviso, junto al lead)
+                                                  │ después del commit
+                                                  ▼
+                             DeliverOutboxMessageJob → OutboxMessageDeliverer → MessageDeliverer (HTTP)
+                                  ▲   release(delay)       │ circuito · reintento · apartado
+                                  └────────────────────────┘
+                             outbox:relay (cada minuto) re-despacha lo atrasado
+```
+
+| Pieza                     | Capa            | Qué decide                                                                        |
+| ------------------------- | --------------- | --------------------------------------------------------------------------------- |
+| `RetryPolicy`             | Dominio         | Backoff exponencial con jitter (mitad fija, mitad aleatoria); rendirse a las 24 h |
+| `CircuitBreaker`          | Dominio         | Tras 5 fallos seguidos, 30 s sin intentar y sin gastar intentos                   |
+| `OutboxMessageDeliverer`  | Aplicación      | Salta lo entregado, no adelanta un reintento, registra el resultado               |
+| `MessageDeliverer`        | Puerto          | **Devuelve** el resultado: una caída es esperable, no una excepción               |
+| `DeliveryQueue`           | Puerto          | Encolar después del commit                                                        |
+| `DeliverOutboxMessageJob` | Infraestructura | Sin límite de intentos de la cola: rendirse lo decide `RetryPolicy`               |
+
+**Un reintento manual abre una ventana nueva.** El plazo de 24 h se cuenta desde el último
+reintento manual; si se contara desde la creación, un mensaje viejo reprocesado a mano se volvería a
+apartar al primer fallo.
+
+## Herramientas de la demo
+
+El CRM simulado (`docker/fake-crm`), su cliente (`app/Services/FakeCrmClient`) y los leads de
+demostración (`app/Support/DemoLeads`) **no son producto**: viven fuera de `src/` y el dominio no los
+conoce. Los leads de demostración son siempre ficticios y llevan el origen `demo`.

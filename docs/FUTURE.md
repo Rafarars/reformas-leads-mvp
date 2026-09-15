@@ -74,3 +74,19 @@ un día, la clave solo ocupa espacio.
 
 **Qué haría falta:** el trait `MassPrunable` de Laravel en `IdempotencyKey` y `model:prune` en el
 planificador. Implica tener el planificador corriendo, que hoy no está en el compose.
+
+## Flujos de n8n y clasificación con IA
+
+**Qué:** los pasos 6 y 7 de la especificación. Clasificar cada lead con Gemini (tipo, prioridad,
+información que falta o contradictoria, resumen) y avisar al equipo por Telegram y Gmail desde n8n.
+
+**Por qué no ahora:** hace falta la API key de Google AI Studio, y n8n recibirá los avisos del
+outbox en lugar del CRM simulado, cambiando solo `DELIVERY_WEBHOOK_URL`: la entrega, los reintentos y
+el circuito ya están resueltos.
+
+## Autenticar el CRM simulado
+
+**Qué:** proteger `/control` del simulador.
+
+**Por qué no ahora:** solo escucha en `127.0.0.1` y en la red del compose, y no existe fuera de
+desarrollo. Si alguna vez se despliega una demo pública, sus controles no pueden quedar abiertos.

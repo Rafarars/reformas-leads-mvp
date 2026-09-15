@@ -2,10 +2,10 @@
 
 namespace Reformas\Delivery\Outbox\Infrastructure;
 
+use Reformas\Delivery\Outbox\Domain\DeliveryQueue;
 use Reformas\Delivery\Outbox\Domain\OutboxMessage;
 use Reformas\Delivery\Outbox\Domain\OutboxMessageId;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
-use Reformas\Delivery\Outbox\Infrastructure\Queue\DeliverOutboxMessageJob;
 use Reformas\Shared\Domain\Clock;
 use Reformas\Shared\Domain\DomainEvent;
 use Reformas\Shared\Domain\EventBus;
@@ -19,6 +19,7 @@ final readonly class OutboxEventBus implements EventBus
         private OutboxRepository $outbox,
         private UuidGenerator $uuidGenerator,
         private Clock $clock,
+        private DeliveryQueue $queue,
     ) {}
 
     public function publish(DomainEvent ...$events): void
@@ -34,8 +35,7 @@ final readonly class OutboxEventBus implements EventBus
                 $this->clock->now(),
             ));
 
-            // Después del commit: si la transacción se revierte, no sale ningún trabajo hacia un mensaje que no existe.
-            DeliverOutboxMessageJob::dispatch($id->value)->afterCommit();
+            $this->queue->enqueue($id);
         }
     }
 }

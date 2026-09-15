@@ -15,4 +15,15 @@ interface OutboxRepository
      * @return list<OutboxMessage>
      */
     public function searchDue(DateTimeImmutable $dueBefore, int $limit): array;
+
+    /**
+     * @return array{pending: int, delivered: int, dead: int}
+     */
+    public function countByStatus(): array;
+
+    // Los más recientes primero.
+    /**
+     * @return list<OutboxMessage>
+     */
+    public function searchLatest(int $limit): array;
 }

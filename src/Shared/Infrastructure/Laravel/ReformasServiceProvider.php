@@ -6,6 +6,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\ServiceProvider;
 use Reformas\Delivery\Outbox\Domain\CircuitBreaker;
 use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
+use Reformas\Delivery\Outbox\Domain\DeliveryQueue;
 use Reformas\Delivery\Outbox\Domain\MessageDeliverer;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
 use Reformas\Delivery\Outbox\Domain\RetryPolicy;
@@ -13,6 +14,7 @@ use Reformas\Delivery\Outbox\Infrastructure\Cache\CacheCircuitBreakerStore;
 use Reformas\Delivery\Outbox\Infrastructure\Http\WebhookMessageDeliverer;
 use Reformas\Delivery\Outbox\Infrastructure\OutboxEventBus;
 use Reformas\Delivery\Outbox\Infrastructure\Persistence\Eloquent\EloquentOutboxRepository;
+use Reformas\Delivery\Outbox\Infrastructure\Queue\LaravelDeliveryQueue;
 use Reformas\Integrations\ApiClient\Domain\ApiClientRepository;
 use Reformas\Integrations\ApiClient\Domain\ApiKeyGenerator;
 use Reformas\Integrations\ApiClient\Infrastructure\Persistence\Eloquent\EloquentApiClientRepository;
@@ -44,6 +46,7 @@ final class ReformasServiceProvider extends ServiceProvider
         OutboxRepository::class => EloquentOutboxRepository::class,
         CircuitBreakerStore::class => CacheCircuitBreakerStore::class,
         Random::class => PhpRandom::class,
+        DeliveryQueue::class => LaravelDeliveryQueue::class,
     ];
 
     public function register(): void
