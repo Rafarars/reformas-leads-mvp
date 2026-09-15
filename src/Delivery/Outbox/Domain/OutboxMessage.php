@@ -55,6 +55,16 @@ final class OutboxMessage
         return $this->id;
     }
 
+    public function attempts(): int
+    {
+        return $this->attempts;
+    }
+
+    public function createdAt(): DateTimeImmutable
+    {
+        return $this->createdAt;
+    }
+
     public function isPending(): bool
     {
         return $this->status === OutboxStatus::Pending;
@@ -79,6 +89,7 @@ final class OutboxMessage
     public function markDead(string $error): void
     {
         $this->status = OutboxStatus::Dead;
+        $this->attempts++;
         $this->lastError = $error;
         $this->nextAttemptAt = null;
     }
