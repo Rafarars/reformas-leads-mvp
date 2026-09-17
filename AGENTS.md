@@ -107,14 +107,16 @@ encadenan dentro del propio script.
 
 ## Documentación
 
-| Archivo                | Contenido                                                            |
-| ---------------------- | -------------------------------------------------------------------- |
-| `docs/spec.md`         | Problema, alcance, arquitectura, resiliencia y orden de construcción |
-| `docs/ARCHITECTURE.md` | Convención hexagonal: estructura, nombres y reglas                   |
-| `docs/BOOTSTRAP.md`    | Bitácora del arranque y de cada tropiezo                             |
-| `docs/FUTURE.md`       | Mejoras diferidas, con su porqué                                     |
-| `docs/RETOMAR.md`      | Estado actual y checklist de lo que falta                            |
-| `README.md`            | Portada del portafolio                                               |
+| Archivo                | Contenido                                                             |
+| ---------------------- | --------------------------------------------------------------------- |
+| `docs/spec.md`         | Problema, alcance, arquitectura, resiliencia y orden de construcción  |
+| `docs/ARCHITECTURE.md` | Convención hexagonal: estructura, nombres y reglas                    |
+| `docs/BOOTSTRAP.md`    | Bitácora del arranque y de cada tropiezo                              |
+| `docs/BITACORA.md`     | Bitácora de los pasos 6 y 7: IA, avisos, sesión con agy y sus errores |
+| `docs/N8N.md`          | Configuración reproducible de Google Cloud, Telegram y los flujos     |
+| `docs/FUTURE.md`       | Mejoras diferidas, con su porqué                                      |
+| `docs/RETOMAR.md`      | Estado actual y checklist de lo que falta                             |
+| `README.md`            | Portada del portafolio                                                |
 
 Las decisiones con su porqué se guardan además en Engram, proyecto `reformas-leads-mvp`.
 **Toda idea de futuro va a `docs/FUTURE.md`**: nada se construye antes de necesitarlo, pero

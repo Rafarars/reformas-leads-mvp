@@ -259,24 +259,65 @@ LeadReceiver ─ transacción ─┬─ guarda el lead
                             └─ EventBus → OutboxEventBus → outbox_messages   (el aviso, junto al lead)
                                                   │ después del commit
                                                   ▼
+                             (un mensaje por destino: DeliveryRouter)
                              DeliverOutboxMessageJob → OutboxMessageDeliverer → MessageDeliverer (HTTP)
                                   ▲   release(delay)       │ circuito · reintento · apartado
                                   └────────────────────────┘
                              outbox:relay (cada minuto) re-despacha lo atrasado
 ```
 
-| Pieza                     | Capa            | Qué decide                                                                        |
-| ------------------------- | --------------- | --------------------------------------------------------------------------------- |
-| `RetryPolicy`             | Dominio         | Backoff exponencial con jitter (mitad fija, mitad aleatoria); rendirse a las 24 h |
-| `CircuitBreaker`          | Dominio         | Tras 5 fallos seguidos, 30 s sin intentar y sin gastar intentos                   |
-| `OutboxMessageDeliverer`  | Aplicación      | Salta lo entregado, no adelanta un reintento, registra el resultado               |
-| `MessageDeliverer`        | Puerto          | **Devuelve** el resultado: una caída es esperable, no una excepción               |
-| `DeliveryQueue`           | Puerto          | Encolar después del commit                                                        |
-| `DeliverOutboxMessageJob` | Infraestructura | Sin límite de intentos de la cola: rendirse lo decide `RetryPolicy`               |
+| Pieza                     | Capa            | Qué decide                                                                         |
+| ------------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| `RetryPolicy`             | Dominio         | Backoff exponencial con jitter (mitad fija, mitad aleatoria); rendirse a las 24 h  |
+| `CircuitBreaker`          | Dominio         | Tras 5 fallos seguidos **del mismo destino**, 30 s sin intentar ni gastar intentos |
+| `DeliveryRouter`          | Puerto          | Qué destinos reciben cada evento (`ConfigDeliveryRouter`, desde la configuración)  |
+| `OutboxMessageDeliverer`  | Aplicación      | Salta lo entregado, no adelanta un reintento, registra el resultado                |
+| `MessageDeliverer`        | Puerto          | **Devuelve** el resultado: una caída es esperable, no una excepción                |
+| `DeliveryQueue`           | Puerto          | Encolar después del commit                                                         |
+| `DeliverOutboxMessageJob` | Infraestructura | Sin límite de intentos de la cola: rendirse lo decide `RetryPolicy`                |
+
+**Un mensaje y un circuito por destino.** Cada evento se guarda una vez por destino suscrito, así
+cada entrega se reintenta y cae por separado:
+
+| Destino    | Evento                           | Llega a                           |
+| ---------- | -------------------------------- | --------------------------------- |
+| `crm`      | `lead.received`                  | CRM simulado (registro inmediato) |
+| `team`     | `lead.classified`                | n8n → Telegram                    |
+| `customer` | `lead.customer_message_approved` | n8n → Gmail                       |
+
+Si Gmail cae, Telegram y el CRM siguen recibiendo. La alternativa descartada (todo a n8n y que n8n
+reenvíe) hacía reintentar todo ante el fallo de un solo destino y duplicaba avisos. Detalle en
+`docs/BITACORA.md`.
 
 **Un reintento manual abre una ventana nueva.** El plazo de 24 h se cuenta desde el último
 reintento manual; si se contara desde la creación, un mensaje viejo reprocesado a mano se volvería a
 apartar al primer fallo.
+
+## Clasificación con IA
+
+Contexto `src/Leads/Classification`. La IA **propone**; el dominio **valida** y una persona decide cuando
+hace falta.
+
+```
+lead.received ─► ClassifyLeadOnLeadReceived ─► ClassifyLeadJob (cola, límite por minuto)
+                                                   │
+                                   LeadClassificationGenerator
+                                   ├─ LeadClassifier (puerto) ─► GeminiLeadClassifier
+                                   │     solo tipo, zona, presupuesto y descripción; salida con esquema fijo
+                                   ├─ válida y confianza ≥ umbral ─► classified
+                                   ├─ dudosa, inválida o sin modelo ─► needs_review
+                                   └─ caída ─► excepción: la cola reintenta; agotado ─► needs_review
+                                   guarda + publica lead.classified (misma transacción)
+```
+
+| Pieza                          | Qué decide                                                                                   |
+| ------------------------------ | -------------------------------------------------------------------------------------------- |
+| `LeadClassification`           | Estados `classified` / `needs_review` / `reviewed`; borrador `pending` / `approved`          |
+| `LeadClassifier`               | Puerto. Distingue caída (reintentar), no configurado (revisión) y salida inválida (revisión) |
+| `LeadContact`                  | A quién avisar o escribir. Viaja a n8n en los eventos, nunca a la IA                         |
+| `CustomerMessageDraftApprover` | Guarda el texto aprobado por la persona y publica `lead.customer_message_approved`           |
+
+La llamada al modelo queda **fuera** de la transacción: no se retiene la base mientras responde.
 
 ## Herramientas de la demo
 

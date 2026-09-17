@@ -102,3 +102,51 @@ puede empeorar la clasificación sin que ninguna prueba lo note, porque el CI no
 
 **Qué haría falta:** un comando `leads:evaluate-classifier` fuera del CI y un umbral mínimo de
 aciertos antes de cambiar `GEMINI_MODEL`.
+
+## Nodo de IA en n8n con un modelo gratuito
+
+**Qué:** usar IA dentro de n8n para algo **no crítico**, por ejemplo un **resumen diario** a las 9:00 por
+Telegram (_Schedule Trigger_ → consulta → modelo → Telegram), o redactar el aviso al equipo a partir de
+los datos ya validados.
+
+**Por qué no ahora:** la clasificación, que sí decide, vive en Laravel con pruebas y validación. La
+cuota gratuita de Gemini (500 peticiones al día con Flash Lite) se reserva para ella.
+
+**Modelos gratuitos investigados** (septiembre de 2026; verificados en la documentación oficial los
+marcados):
+
+| Opción                                      | Modelos                                                          | Límite gratuito                                          | En n8n                            |
+| ------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------- |
+| **Groq** (verificado)                       | `qwen/qwen3.8-27b` (chino), `openai/gpt-oss-120b`, `gpt-oss-20b` | 30 por minuto, 1.000 al día, 8K tokens/min, sin tarjeta  | Nodo _Groq Chat Model_            |
+| OpenRouter (verificado)                     | Modelos `:free`                                                  | 20 por minuto, 50 al día (1.000 con 10 $ de créditos)    | Nodo _OpenRouter Chat Model_      |
+| Zhipu GLM Flash, SiliconFlow                | GLM, Qwen, DeepSeek                                              | Sin confirmar                                            | Nodo OpenAI con _Base URL_ propia |
+| DeepSeek, DashScope, Kimi, MiniMax directos | —                                                                | Sin capa gratuita o piden teléfono chino (sin verificar) | —                                 |
+
+**Recomendación:** Groq con `qwen/qwen3.8-27b`, solo con datos ficticios (no se verificó su política de
+uso de datos).
+
+## Notificación de errores en n8n
+
+**Qué:** un _Error Workflow_ que avise por Telegram cuando un flujo falle.
+
+**Por qué no ahora:** con `Respond: When Last Node Finishes`, un fallo vuelve a Laravel como error; el
+outbox reintenta y, si no se recupera, el aviso queda apartado y visible en el panel de Resiliencia.
+
+## Autenticar los webhooks de n8n
+
+**Qué:** `Header Auth` en los nodos Webhook y la cabecera correspondiente desde Laravel.
+
+**Por qué no ahora:** n8n solo escucha en `127.0.0.1` y en la red del compose. Imprescindible al desplegar.
+
+## Borrador del correo en párrafos
+
+**Qué:** pedir a Gemini que separe saludo, cuerpo y despedida con saltos de línea.
+
+**Por qué:** hoy el borrador llega en un solo bloque y el correo sale como un único párrafo.
+
+## Silenciar los avisos de las E2E en local
+
+**Qué:** que `make e2e` despublique el flujo de avisos antes de las pruebas y lo vuelva a publicar al terminar.
+
+**Por qué no ahora:** los Telegrams de prueba no molestan y un lead de Recepción **debe** avisar. Filtrar
+por `@example.com` se descartó: sería una regla de pruebas en el código de producción.

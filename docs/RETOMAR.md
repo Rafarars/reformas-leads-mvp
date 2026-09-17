@@ -51,24 +51,26 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 
 ### Pendiente
 
-- [ ] **Paso 7 · Avisos con n8n**
-    - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`): si cae Gmail,
-          siguen saliendo los avisos de Telegram y el CRM
-    - [x] Rutas en `config/services.php` (`delivery.destinations`); URLs `DELIVERY_CRM_URL`, `DELIVERY_TEAM_URL`,
-          `DELIVERY_CUSTOMER_URL`
-    - [x] Evento `lead.classified` (también cuando queda para revisión humana): el equipo nunca recibe un lead
-          sin clasificar, ni se queda sin saber de uno que la IA no pudo clasificar
-    - [x] `lead.customer_message_approved` lleva el destinatario (`customer`: nombre, email, teléfono)
-    - [x] Panel de resiliencia: circuito por destino y destino de cada aviso
-    - [x] Google Cloud (proyecto, Gmail API, OAuth) y credencial de Gmail en n8n (hecho con agy)
-    - [ ] **Rafael configura los nodos en n8n, guiado** (quiere aprenderlo): flujo `Reformas · Equipo`
-          (Webhook `reformas-team` → Telegram) y `Reformas · Cliente` (Webhook `reformas-customer` → Gmail)
-    - [ ] Activar (publicar) los dos flujos: las URLs `/webhook/` solo responden con el flujo activo
-    - [ ] Exportar los flujos como JSON a `n8n/workflows/` (`n8n export:workflow`), sin credenciales
-    - [ ] Revocar el token del bot de Telegram (quedó en los registros de agy) cuando termine la prueba
+- [x] **Paso 7 · Avisos con n8n** (guía en `docs/N8N.md`, historia en `docs/BITACORA.md`)
+    - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`)
+    - [x] Evento `lead.classified` (también para revisión humana); `lead.customer_message_approved` con destinatario
+    - [x] Google Cloud (proyecto, Gmail API, OAuth) y credenciales de Gmail y Telegram en n8n
+    - [x] Flujos `Reformas · Cliente` (Gmail) y `Reformas · Equipo` (Telegram), configurados por Rafael,
+          **publicados** y probados de punta a punta
+    - [x] Resiliencia observada: 8 avisos acumulados con 404 se entregaron solos al publicar
+- [ ] **Paso 7b · Cerrar n8n**
+    - [ ] **Unificar en `Reformas · Avisos`**: Webhook `reformas-events` → Switch por `body.event` →
+          Telegram / Gmail / Stop and Error. Rafael lo configura guiado; **se quedó en insertar el Switch**
+    - [ ] Después de publicarlo: apuntar `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` a `/webhook/reformas-events`
+          (compose, `.env`, `.env.example`) y despublicar los dos flujos viejos
+    - [ ] Exportar el flujo a `n8n/workflows/` con `n8n export:workflow` (sin credenciales)
+    - [ ] Borrador del correo en párrafos (instrucción a Gemini)
+    - [ ] Bot de Telegram propio del proyecto y revocar el token actual (expuesto en la sesión con agy)
+    - [ ] Quitar `GMAIL_API_KEY` del `.env` (sobra)
 - [ ] **Paso 8 · Fotos y planos** (endpoint propio, misma transacción, borrar el archivo huérfano)
 - [ ] **Cierre**
     - [ ] Actualizar README con la demo y, si procede, un vídeo corto
+    - [ ] Nodo de IA en n8n para algo no crítico con un modelo gratuito (Groq `qwen/qwen3.8-27b`; ver `docs/FUTURE.md`)
     - [ ] Extraer al playbook lo validado en los pasos 6 a 8
 
 ### Deuda anotada en `docs/FUTURE.md`
@@ -95,4 +97,8 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 - Opción B para los avisos: un mensaje del outbox por destino. Descartada la A (todo a n8n y n8n reenvía al
   CRM): un fallo del CRM hacía reintentar todo y duplicaba los avisos de Telegram
 - Los nodos de n8n los configura Rafael con guía paso a paso; no se importan flujos ni credenciales por comando
+- La IA que decide (clasificación) vive en Laravel; n8n solo reparte avisos
+- Los Telegrams de las E2E en local se aceptan; no se filtra por `@example.com`
+- Otra herramienta que continúe el trabajo (p. ej. agy) debe leer este documento primero y proponer antes de
+  cambiar la arquitectura: ver los errores registrados en `docs/BITACORA.md`
 - Automatismos nuevos (Makefile, enganches) y reglas de `AGENTS.md`: **se proponen antes de escribirlos**
