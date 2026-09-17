@@ -5,7 +5,8 @@ namespace Reformas\Delivery\Outbox\Domain;
 use DateInterval;
 use DateTimeImmutable;
 
-// Deja de golpear un servicio caído. Tras varios fallos seguidos se abre y no se intenta nada hasta que
+// Deja de golpear un servicio caído, con un circuito por destino: que caiga uno no frena a los demás.
+// Tras varios fallos seguidos se abre y no se intenta nada hasta que
 // pasa el enfriamiento; entonces deja pasar un intento de prueba. Si falla, se vuelve a abrir.
 final readonly class CircuitBreaker
 {
@@ -15,26 +16,26 @@ final readonly class CircuitBreaker
         private int $cooldownSeconds = 30,
     ) {}
 
-    public function openUntil(DateTimeImmutable $now): ?DateTimeImmutable
+    public function openUntil(string $destination, DateTimeImmutable $now): ?DateTimeImmutable
     {
-        $openUntil = $this->store->state()->openUntil;
+        $openUntil = $this->store->state($destination)->openUntil;
 
         return $openUntil !== null && $openUntil > $now ? $openUntil : null;
     }
 
-    public function recordSuccess(): void
+    public function recordSuccess(string $destination): void
     {
-        $this->store->save(CircuitBreakerState::closed());
+        $this->store->save($destination, CircuitBreakerState::closed());
     }
 
-    public function recordFailure(DateTimeImmutable $now): void
+    public function recordFailure(string $destination, DateTimeImmutable $now): void
     {
-        $failures = $this->store->state()->consecutiveFailures + 1;
+        $failures = $this->store->state($destination)->consecutiveFailures + 1;
 
         $openUntil = $failures >= $this->failureThreshold
             ? $now->add(new DateInterval('PT'.$this->cooldownSeconds.'S'))
             : null;
 
-        $this->store->save(new CircuitBreakerState($failures, $openUntil));
+        $this->store->save($destination, new CircuitBreakerState($failures, $openUntil));
     }
 }

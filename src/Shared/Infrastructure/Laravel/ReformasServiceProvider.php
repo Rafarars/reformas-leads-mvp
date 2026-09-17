@@ -9,10 +9,12 @@ use Illuminate\Support\ServiceProvider;
 use Reformas\Delivery\Outbox\Domain\CircuitBreaker;
 use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
 use Reformas\Delivery\Outbox\Domain\DeliveryQueue;
+use Reformas\Delivery\Outbox\Domain\DeliveryRouter;
 use Reformas\Delivery\Outbox\Domain\MessageDeliverer;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
 use Reformas\Delivery\Outbox\Domain\RetryPolicy;
 use Reformas\Delivery\Outbox\Infrastructure\Cache\CacheCircuitBreakerStore;
+use Reformas\Delivery\Outbox\Infrastructure\ConfigDeliveryRouter;
 use Reformas\Delivery\Outbox\Infrastructure\Http\WebhookMessageDeliverer;
 use Reformas\Delivery\Outbox\Infrastructure\OutboxEventBus;
 use Reformas\Delivery\Outbox\Infrastructure\Persistence\Eloquent\EloquentOutboxRepository;
@@ -84,15 +86,20 @@ final class ReformasServiceProvider extends ServiceProvider
             $app->make(LeadRepository::class),
             $app->make(LeadClassificationRepository::class),
             $app->make(LeadClassifier::class),
+            $app->make(Transaction::class),
+            $app->make(EventBus::class),
             $app->make(Clock::class),
             config()->float('services.classification.min_confidence'),
         ));
 
-        $this->app->bind(MessageDeliverer::class, function (): MessageDeliverer {
-            $url = config('services.delivery.webhook_url');
+        $this->app->bind(MessageDeliverer::class, fn (): MessageDeliverer => new WebhookMessageDeliverer(
+            array_map(static fn (array $destination): ?string => is_string($destination['url'] ?? null) ? $destination['url'] : null, $this->deliveryDestinations()),
+            config()->integer('services.delivery.timeout_seconds'),
+        ));
 
-            return new WebhookMessageDeliverer(is_string($url) ? $url : null, config()->integer('services.delivery.timeout_seconds'));
-        });
+        $this->app->bind(DeliveryRouter::class, fn (): DeliveryRouter => new ConfigDeliveryRouter(
+            array_map(static fn (array $destination): array => array_values(array_filter((array) ($destination['events'] ?? []), is_string(...))), $this->deliveryDestinations()),
+        ));
 
         $this->app->bind(RetryPolicy::class, fn (Application $app): RetryPolicy => new RetryPolicy(
             $app->make(Random::class),
@@ -111,5 +118,15 @@ final class ReformasServiceProvider extends ServiceProvider
     public function boot(): void
     {
         RateLimiter::for(ClassifyLeadJob::RATE_LIMITER, fn (): Limit => Limit::perMinute(config()->integer('services.gemini.requests_per_minute')));
+    }
+
+    /**
+     * @return array<string, array<string, mixed>>
+     */
+    private function deliveryDestinations(): array
+    {
+        $destinations = config('services.delivery.destinations');
+
+        return is_array($destinations) ? array_filter($destinations, is_array(...)) : [];
     }
 }

@@ -10,25 +10,29 @@ use Reformas\Delivery\Outbox\Domain\OutboxMessage;
 
 final readonly class WebhookMessageDeliverer implements MessageDeliverer
 {
+    /**
+     * @param  array<string, ?string>  $urlsByDestination
+     */
     public function __construct(
-        private ?string $url,
+        private array $urlsByDestination,
         private int $timeoutSeconds,
     ) {}
 
     public function deliver(OutboxMessage $message): DeliveryResult
     {
-        if ($this->url === null || $this->url === '') {
-            return DeliveryResult::failed('No hay un destino de entrega configurado (DELIVERY_WEBHOOK_URL).');
-        }
-
         $primitives = $message->toPrimitives();
+        $url = $this->urlsByDestination[$primitives['destination']] ?? null;
+
+        if ($url === null || $url === '') {
+            return DeliveryResult::failed(sprintf('El destino <%s> no tiene URL configurada.', $primitives['destination']));
+        }
 
         try {
             $response = Http::timeout($this->timeoutSeconds)
                 ->acceptJson()
                 // El id del mensaje como clave: si un reintento llega dos veces, el receptor lo descarta.
                 ->withHeaders(['Idempotency-Key' => $primitives['id']])
-                ->post($this->url, [
+                ->post($url, [
                     'id' => $primitives['id'],
                     'event' => $primitives['event_name'],
                     'aggregate_id' => $primitives['aggregate_id'],

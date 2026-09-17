@@ -8,6 +8,7 @@ use Reformas\Delivery\Outbox\Domain\OutboxMessage;
 use Reformas\Delivery\Outbox\Domain\OutboxMessageId;
 use Reformas\Delivery\Outbox\Domain\OutboxMessageNotDeadError;
 use Reformas\Delivery\Outbox\Domain\OutboxMessageNotFoundError;
+use Reformas\Delivery\Outbox\Infrastructure\ConfigDeliveryRouter;
 use Reformas\Delivery\Outbox\Infrastructure\InMemory\InMemoryCircuitBreakerStore;
 use Reformas\Delivery\Outbox\Infrastructure\Persistence\InMemory\InMemoryOutboxRepository;
 use Tests\Unit\Delivery\Outbox\SpyDeliveryQueue;
@@ -24,7 +25,7 @@ beforeEach(function () {
 function panelMessage(object $test, int $number, string $name = 'Ana García'): OutboxMessage
 {
     $message = OutboxMessage::create(
-        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)),
+        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'crm',
         'lead.received',
         '00000000-0000-7000-8000-0000000000aa',
         ['name' => $name, 'repeated' => false],
@@ -40,13 +41,17 @@ it('summarizes the outbox and the circuit breaker for the panel', function () {
     $dead = panelMessage($this, 2, 'Luis Martínez');
     $dead->markDead('El destino respondió HTTP 500');
     $this->outbox->save($dead);
-    $this->breaker->recordFailure($this->clock->now());
-    $this->breaker->recordFailure($this->clock->now());
+    $this->breaker->recordFailure('crm', $this->clock->now());
+    $this->breaker->recordFailure('crm', $this->clock->now());
 
-    $status = (new DeliveryStatusSearcher($this->outbox, $this->breaker, $this->breakerStore, $this->clock))()->toArray();
+    $status = (new DeliveryStatusSearcher($this->outbox, $this->breaker, $this->breakerStore, new ConfigDeliveryRouter(['crm' => ['lead.received'], 'team' => ['lead.classified']]), $this->clock))()->toArray();
 
     expect($status['counts'])->toBe(['pending' => 1, 'delivered' => 0, 'dead' => 1])
-        ->and($status['circuit'])->toBe(['open' => true, 'open_until' => '2026-09-15T10:00:30+00:00', 'consecutive_failures' => 2])
+        ->and($status['circuits'])->toBe([
+            ['destination' => 'crm', 'open' => true, 'open_until' => '2026-09-15T10:00:30+00:00', 'consecutive_failures' => 2],
+            // Un circuito por destino: que caiga el CRM no frena los avisos al equipo.
+            ['destination' => 'team', 'open' => false, 'open_until' => null, 'consecutive_failures' => 0],
+        ])
         ->and(array_column($status['messages'], 'lead_name'))->toBe(['Luis Martínez', 'Ana García'])
         ->and($status['messages'][0]['last_error'])->toBe('El destino respondió HTTP 500');
 });

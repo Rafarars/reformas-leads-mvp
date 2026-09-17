@@ -6,7 +6,7 @@ namespace Reformas\Delivery\Outbox\Domain;
 // dejan de intentarlo también.
 interface CircuitBreakerStore
 {
-    public function state(): CircuitBreakerState;
+    public function state(string $destination): CircuitBreakerState;
 
-    public function save(CircuitBreakerState $state): void;
+    public function save(string $destination, CircuitBreakerState $state): void;
 }

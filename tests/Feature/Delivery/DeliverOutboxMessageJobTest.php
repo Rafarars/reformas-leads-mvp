@@ -12,10 +12,10 @@ uses(RefreshDatabase::class);
 const JOB_MESSAGE_ID = '00000000-0000-7000-8000-000000000001';
 
 beforeEach(function () {
-    config(['services.delivery.webhook_url' => 'https://crm.test/webhooks/leads']);
+    config(['services.delivery.destinations.crm.url' => 'https://crm.test/webhooks/leads']);
 
     app(OutboxRepository::class)->save(OutboxMessage::create(
-        new OutboxMessageId(JOB_MESSAGE_ID),
+        new OutboxMessageId(JOB_MESSAGE_ID), 'crm',
         'lead.received',
         '00000000-0000-7000-8000-0000000000aa',
         ['repeated' => false],

@@ -36,7 +36,8 @@ final readonly class OutboxMessageDeliverer
             return DeliveryOutcome::retryScheduled($nextAttemptAt);
         }
 
-        $openUntil = $this->circuitBreaker->openUntil($now);
+        $destination = $message->destination();
+        $openUntil = $this->circuitBreaker->openUntil($destination, $now);
 
         // Con el circuito abierto no se intenta ni se gasta un intento: se espera a que se cierre.
         if ($openUntil !== null) {
@@ -47,13 +48,13 @@ final readonly class OutboxMessageDeliverer
 
         if ($result->succeeded) {
             $message->markDelivered($now);
-            $this->circuitBreaker->recordSuccess();
+            $this->circuitBreaker->recordSuccess($destination);
             $this->outbox->save($message);
 
             return DeliveryOutcome::delivered();
         }
 
-        $this->circuitBreaker->recordFailure($now);
+        $this->circuitBreaker->recordFailure($destination, $now);
         $reason = (string) $result->failureReason;
 
         // Apartado, nunca descartado: queda con su último error para reprocesarlo a mano.

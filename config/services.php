@@ -18,9 +18,25 @@ return [
         'requests_per_minute' => (int) env('API_REQUESTS_PER_MINUTE', 60),
     ],
 
-    // Entrega de los eventos del outbox a un sistema externo.
+    // Entrega de los eventos del outbox. Cada destino tiene su URL, sus eventos y su propio circuito.
     'delivery' => [
-        'webhook_url' => env('DELIVERY_WEBHOOK_URL'),
+        'destinations' => [
+            // Registro comercial: el lead existe desde que llega, clasificado o no.
+            'crm' => [
+                'url' => env('DELIVERY_CRM_URL'),
+                'events' => ['lead.received'],
+            ],
+            // Aviso al equipo (n8n → Telegram), cuando ya hay clasificación o hace falta revisarlo a mano.
+            'team' => [
+                'url' => env('DELIVERY_TEAM_URL'),
+                'events' => ['lead.classified'],
+            ],
+            // Mensaje al cliente (n8n → Gmail), solo tras la aprobación de una persona.
+            'customer' => [
+                'url' => env('DELIVERY_CUSTOMER_URL'),
+                'events' => ['lead.customer_message_approved'],
+            ],
+        ],
         'timeout_seconds' => (int) env('DELIVERY_TIMEOUT_SECONDS', 5),
         'failure_threshold' => (int) env('DELIVERY_FAILURE_THRESHOLD', 5),
         'cooldown_seconds' => (int) env('DELIVERY_COOLDOWN_SECONDS', 30),

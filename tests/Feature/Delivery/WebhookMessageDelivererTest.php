@@ -11,6 +11,7 @@ function webhookMessage(): OutboxMessage
 {
     return OutboxMessage::create(
         new OutboxMessageId('00000000-0000-7000-8000-000000000001'),
+        'crm',
         'lead.received',
         '00000000-0000-7000-8000-0000000000aa',
         ['name' => 'Ana García', 'repeated' => false],
@@ -21,7 +22,7 @@ function webhookMessage(): OutboxMessage
 it('delivers the event with the message id as idempotency key', function () {
     Http::fake(['crm.test/*' => Http::response(['ok' => true], 202)]);
 
-    $result = (new WebhookMessageDeliverer('https://crm.test/webhooks/leads', 5))->deliver(webhookMessage());
+    $result = (new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads'], 5))->deliver(webhookMessage());
 
     expect($result->succeeded)->toBeTrue();
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://crm.test/webhooks/leads'
@@ -34,7 +35,7 @@ it('delivers the event with the message id as idempotency key', function () {
 it('reports an error response as a failed delivery', function () {
     Http::fake(['crm.test/*' => Http::response(null, 503)]);
 
-    $result = (new WebhookMessageDeliverer('https://crm.test/webhooks/leads', 5))->deliver(webhookMessage());
+    $result = (new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads'], 5))->deliver(webhookMessage());
 
     expect($result->succeeded)->toBeFalse()
         ->and($result->failureReason)->toBe('El destino respondió HTTP 503');
@@ -43,7 +44,7 @@ it('reports an error response as a failed delivery', function () {
 it('reports a connection problem as a failed delivery instead of throwing', function () {
     Http::fake(fn () => throw new ConnectionException('Connection refused'));
 
-    $result = (new WebhookMessageDeliverer('https://crm.test/webhooks/leads', 5))->deliver(webhookMessage());
+    $result = (new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads'], 5))->deliver(webhookMessage());
 
     expect($result->succeeded)->toBeFalse()
         ->and($result->failureReason)->toContain('Sin conexión con el destino');
@@ -52,8 +53,30 @@ it('reports a connection problem as a failed delivery instead of throwing', func
 it('fails without calling anyone when no destination is configured', function () {
     Http::fake();
 
-    $result = (new WebhookMessageDeliverer(null, 5))->deliver(webhookMessage());
+    $result = (new WebhookMessageDeliverer(['crm' => null], 5))->deliver(webhookMessage());
 
     expect($result->succeeded)->toBeFalse();
+    Http::assertNothingSent();
+});
+
+it('sends each message to the URL of its own destination', function () {
+    Http::fake(['n8n.test/*' => Http::response(null, 200)]);
+
+    $deliverer = new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads', 'team' => 'https://n8n.test/webhook/reformas-team'], 5);
+    $message = OutboxMessage::create(new OutboxMessageId('00000000-0000-7000-8000-000000000002'), 'team', 'lead.classified', '00000000-0000-7000-8000-0000000000aa', [], new DateTimeImmutable);
+
+    expect($deliverer->deliver($message)->succeeded)->toBeTrue();
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://n8n.test/webhook/reformas-team');
+    Http::assertSentCount(1);
+});
+
+it('fails for a destination it does not know', function () {
+    Http::fake();
+
+    $message = OutboxMessage::create(new OutboxMessageId('00000000-0000-7000-8000-000000000002'), 'unknown', 'lead.classified', '00000000-0000-7000-8000-0000000000aa', [], new DateTimeImmutable);
+    $result = (new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads'], 5))->deliver($message);
+
+    expect($result->succeeded)->toBeFalse()
+        ->and($result->failureReason)->toBe('El destino <unknown> no tiene URL configurada.');
     Http::assertNothingSent();
 });

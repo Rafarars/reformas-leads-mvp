@@ -16,7 +16,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 | ------------------------ | ----------------------------------------------------------------------------------- |
 | Repositorio              | github.com/Rafarars/reformas-leads-mvp (privado)                                    |
 | Último commit verificado | `58c4096`, CI en verde                                                              |
-| Pruebas                  | Pest 336 · PHPStan nivel 7 sin errores · Playwright 9                               |
+| Pruebas                  | Pest 348 · PHPStan nivel 7 sin errores · Playwright 9                               |
 | Servicios                | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                          |
 | URLs locales             | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control` |
 | Usuario de prueba        | `test@example.com` / `password`                                                     |
@@ -51,13 +51,21 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 
 ### Pendiente
 
-- [ ] **Paso 7 · Flujos de n8n**
-    - [ ] Workflow que recibe el aviso del outbox (cambiar `DELIVERY_WEBHOOK_URL` a n8n)
-    - [ ] Tratar `lead.customer_message_approved`: el evento lleva el texto y quién aprobó, **no el email ni el
-          teléfono**; decidir si se añaden al evento o n8n los consulta
-    - [ ] Aviso al equipo por **Telegram** (token de bot)
-    - [ ] Resumen por **Gmail** (OAuth2)
-    - [ ] Exportar los workflows como JSON al repositorio
+- [ ] **Paso 7 · Avisos con n8n**
+    - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`): si cae Gmail,
+          siguen saliendo los avisos de Telegram y el CRM
+    - [x] Rutas en `config/services.php` (`delivery.destinations`); URLs `DELIVERY_CRM_URL`, `DELIVERY_TEAM_URL`,
+          `DELIVERY_CUSTOMER_URL`
+    - [x] Evento `lead.classified` (también cuando queda para revisión humana): el equipo nunca recibe un lead
+          sin clasificar, ni se queda sin saber de uno que la IA no pudo clasificar
+    - [x] `lead.customer_message_approved` lleva el destinatario (`customer`: nombre, email, teléfono)
+    - [x] Panel de resiliencia: circuito por destino y destino de cada aviso
+    - [x] Google Cloud (proyecto, Gmail API, OAuth) y credencial de Gmail en n8n (hecho con agy)
+    - [ ] **Rafael configura los nodos en n8n, guiado** (quiere aprenderlo): flujo `Reformas · Equipo`
+          (Webhook `reformas-team` → Telegram) y `Reformas · Cliente` (Webhook `reformas-customer` → Gmail)
+    - [ ] Activar (publicar) los dos flujos: las URLs `/webhook/` solo responden con el flujo activo
+    - [ ] Exportar los flujos como JSON a `n8n/workflows/` (`n8n export:workflow`), sin credenciales
+    - [ ] Revocar el token del bot de Telegram (quedó en los registros de agy) cuando termine la prueba
 - [ ] **Paso 8 · Fotos y planos** (endpoint propio, misma transacción, borrar el archivo huérfano)
 - [ ] **Cierre**
     - [ ] Actualizar README con la demo y, si procede, un vídeo corto
@@ -84,4 +92,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 - Un 4xx de Gemini que no sea 408/429 no se reintenta (key, modelo o parámetro): va directo a revisión
 - Los leads de la demo de resiliencia (`source=demo`) y los contactos repetidos **no se clasifican**
 - La clasificación vive en su propia tabla (`lead_classifications`), no en columnas de `leads`
+- Opción B para los avisos: un mensaje del outbox por destino. Descartada la A (todo a n8n y n8n reenvía al
+  CRM): un fallo del CRM hacía reintentar todo y duplicaba los avisos de Telegram
+- Los nodos de n8n los configura Rafael con guía paso a paso; no se importan flujos ni credenciales por comando
 - Automatismos nuevos (Makefile, enganches) y reglas de `AGENTS.md`: **se proponen antes de escribirlos**

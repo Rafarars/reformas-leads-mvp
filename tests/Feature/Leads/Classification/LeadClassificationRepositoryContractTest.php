@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Reformas\Leads\Classification\Domain\LeadClassification;
 use Reformas\Leads\Classification\Domain\LeadClassificationRepository;
+use Reformas\Leads\Classification\Domain\LeadContact;
 use Reformas\Leads\Classification\Domain\Urgency;
 use Reformas\Leads\Classification\Domain\WorkCategory;
 use Reformas\Leads\Classification\Infrastructure\Persistence\Eloquent\EloquentLeadClassificationRepository;
@@ -34,8 +35,8 @@ it('returns null when a lead has no classification', function (LeadClassificatio
 })->with('lead classification repositories');
 
 it('gives back a classification exactly as it was, with or without a proposal', function (LeadClassificationRepository $repository) {
-    $classified = LeadClassification::fromProposal(classifiableLead(1), ClassificationProposalMother::create(0.83), 0.7, new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
-    $unclassified = LeadClassification::unclassified(classifiableLead(2), 'La IA no respondió.', new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
+    $classified = LeadClassification::fromProposal(classifiableLead(1), ClassificationProposalMother::create(0.83), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
+    $unclassified = LeadClassification::unclassified(classifiableLead(2), 'La IA no respondió.', new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
 
     $repository->save($classified);
     $repository->save($unclassified);
@@ -45,7 +46,7 @@ it('gives back a classification exactly as it was, with or without a proposal', 
 })->with('lead classification repositories');
 
 it('updates a reviewed classification instead of duplicating it', function (LeadClassificationRepository $repository) {
-    $classification = LeadClassification::unclassified(classifiableLead(1), 'La IA no respondió.', new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
+    $classification = LeadClassification::unclassified(classifiableLead(1), 'La IA no respondió.', new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
     $repository->save($classification);
 
     $classification->review(WorkCategory::Kitchen, Urgency::Low, 'ana@example.com', new DateTimeImmutable('2026-09-15T11:00:00+00:00'));
@@ -56,9 +57,9 @@ it('updates a reviewed classification instead of duplicating it', function (Lead
 })->with('lead classification repositories');
 
 it('lists pending reviews first and then the most recent, up to the limit', function (LeadClassificationRepository $repository) {
-    $repository->save(LeadClassification::fromProposal(classifiableLead(1), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable('2026-09-15T10:00:00+00:00')));
-    $repository->save(LeadClassification::unclassified(classifiableLead(2), 'x', new DateTimeImmutable('2026-09-15T09:00:00+00:00')));
-    $repository->save(LeadClassification::fromProposal(classifiableLead(3), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable('2026-09-15T11:00:00+00:00')));
+    $repository->save(LeadClassification::fromProposal(classifiableLead(1), ClassificationProposalMother::create(), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T10:00:00+00:00')));
+    $repository->save(LeadClassification::unclassified(classifiableLead(2), 'x', new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T09:00:00+00:00')));
+    $repository->save(LeadClassification::fromProposal(classifiableLead(3), ClassificationProposalMother::create(), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T11:00:00+00:00')));
 
     $ids = array_map(static fn (LeadClassification $c): string => substr($c->leadId()->value, -1), $repository->searchLatest(2));
 

@@ -53,11 +53,11 @@ final class LeadClassification extends AggregateRoot
     ) {}
 
     // Por debajo del umbral la propuesta se guarda, pero una persona decide.
-    public static function fromProposal(LeadId $leadId, ClassificationProposal $proposal, float $minConfidence, DateTimeImmutable $now): self
+    public static function fromProposal(LeadId $leadId, ClassificationProposal $proposal, float $minConfidence, LeadContact $customer, DateTimeImmutable $now): self
     {
         $doubtful = $proposal->confidence->isBelow($minConfidence);
 
-        return new self(
+        $classification = new self(
             $leadId,
             $doubtful ? ClassificationStatus::NeedsReview : ClassificationStatus::Classified,
             $proposal->category,
@@ -78,12 +78,21 @@ final class LeadClassification extends AggregateRoot
             $now,
             $now,
         );
+
+        $classification->recordClassified($customer, $now);
+
+        return $classification;
     }
 
     // Sin propuesta usable: el lead no se queda sin atender, pasa a una persona.
-    public static function unclassified(LeadId $leadId, string $why, DateTimeImmutable $now): self
+    // También se avisa: un lead sin clasificar no puede quedarse esperando sin que nadie lo sepa.
+    public static function unclassified(LeadId $leadId, string $why, LeadContact $customer, DateTimeImmutable $now): self
     {
-        return new self($leadId, ClassificationStatus::NeedsReview, null, null, null, null, null, null, null, null, null, null, null, null, $why, null, $now, $now);
+        $classification = new self($leadId, ClassificationStatus::NeedsReview, null, null, null, null, null, null, null, null, null, null, null, null, $why, null, $now, $now);
+
+        $classification->recordClassified($customer, $now);
+
+        return $classification;
     }
 
     // La decisión humana manda: sustituye a la de la IA, que queda en el motivo y el modelo.
@@ -98,7 +107,7 @@ final class LeadClassification extends AggregateRoot
     }
 
     // Se guarda el texto que la persona dio por bueno, no el del modelo.
-    public function approveDraft(CustomerMessageDraft $finalMessage, string $approver, DateTimeImmutable $now): void
+    public function approveDraft(CustomerMessageDraft $finalMessage, string $approver, LeadContact $customer, DateTimeImmutable $now): void
     {
         if ($this->draftStatus !== DraftStatus::Pending) {
             throw new CustomerMessageDraftNotPendingError($this->leadId->value);
@@ -110,7 +119,7 @@ final class LeadClassification extends AggregateRoot
         $this->draftApprovedAt = $now;
         $this->updatedAt = $now;
 
-        $this->recordEvent(new CustomerMessageApprovedDomainEvent($this->leadId->value, $now, $finalMessage->value, $approver));
+        $this->recordEvent(new CustomerMessageApprovedDomainEvent($this->leadId->value, $now, $finalMessage->value, $approver, $customer));
     }
 
     public function leadId(): LeadId
@@ -170,5 +179,24 @@ final class LeadClassification extends AggregateRoot
             'created_at' => $this->createdAt->format(DateTimeInterface::ATOM),
             'updated_at' => $this->updatedAt->format(DateTimeInterface::ATOM),
         ];
+    }
+
+    private function recordClassified(LeadContact $customer, DateTimeImmutable $now): void
+    {
+        $primitives = $this->toPrimitives();
+
+        // Sin el borrador: el aviso al equipo no lleva el mensaje pendiente de aprobar.
+        $this->recordEvent(new LeadClassifiedDomainEvent($this->leadId->value, $now, [
+            'lead_id' => $primitives['lead_id'],
+            'status' => $primitives['status'],
+            'category' => $primitives['category'],
+            'urgency' => $primitives['urgency'],
+            'confidence' => $primitives['confidence'],
+            'reason' => $primitives['reason'],
+            'summary' => $primitives['summary'],
+            'missing_information' => $primitives['missing_information'],
+            'contradictions' => $primitives['contradictions'],
+            'review_reason' => $primitives['review_reason'],
+        ], $customer));
     }
 }

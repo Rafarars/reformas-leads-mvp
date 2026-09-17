@@ -8,6 +8,7 @@ use DateTimeInterface;
 /**
  * @phpstan-type OutboxMessagePrimitives array{
  *     id: string,
+ *     destination: string,
  *     event_name: string,
  *     aggregate_id: string,
  *     payload: array<string, mixed>,
@@ -27,6 +28,7 @@ final class OutboxMessage
      */
     private function __construct(
         private readonly OutboxMessageId $id,
+        private readonly string $destination,
         private readonly string $eventName,
         private readonly string $aggregateId,
         private readonly array $payload,
@@ -44,17 +46,23 @@ final class OutboxMessage
      */
     public static function create(
         OutboxMessageId $id,
+        string $destination,
         string $eventName,
         string $aggregateId,
         array $payload,
         DateTimeImmutable $now,
     ): self {
-        return new self($id, $eventName, $aggregateId, $payload, OutboxStatus::Pending, 0, $now, null, $now, null, null);
+        return new self($id, $destination, $eventName, $aggregateId, $payload, OutboxStatus::Pending, 0, $now, null, $now, null, null);
     }
 
     public function id(): OutboxMessageId
     {
         return $this->id;
+    }
+
+    public function destination(): string
+    {
+        return $this->destination;
     }
 
     public function attempts(): int
@@ -123,6 +131,7 @@ final class OutboxMessage
     {
         return new self(
             new OutboxMessageId($primitives['id']),
+            $primitives['destination'],
             $primitives['event_name'],
             $primitives['aggregate_id'],
             $primitives['payload'],
@@ -143,6 +152,7 @@ final class OutboxMessage
     {
         return [
             'id' => $this->id->value,
+            'destination' => $this->destination,
             'event_name' => $this->eventName,
             'aggregate_id' => $this->aggregateId,
             'payload' => $this->payload,

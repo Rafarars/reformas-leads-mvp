@@ -3,8 +3,10 @@
 namespace Reformas\Delivery\Outbox\Application\Search;
 
 /**
+ * @phpstan-type CircuitSummary array{destination: string, open: bool, open_until: ?string, consecutive_failures: int}
  * @phpstan-type MessageSummary array{
  *     id: string,
+ *     destination: string,
  *     event: string,
  *     lead_name: ?string,
  *     repeated: bool,
@@ -20,19 +22,19 @@ final readonly class DeliveryStatusSearcherResponse
 {
     /**
      * @param  array{pending: int, delivered: int, dead: int}  $counts
+     * @param  list<CircuitSummary>  $circuits
      * @param  list<MessageSummary>  $messages
      */
     public function __construct(
         public array $counts,
-        public ?string $circuitOpenUntil,
-        public int $consecutiveFailures,
+        public array $circuits,
         public array $messages,
     ) {}
 
     /**
      * @return array{
      *     counts: array{pending: int, delivered: int, dead: int},
-     *     circuit: array{open: bool, open_until: ?string, consecutive_failures: int},
+     *     circuits: list<CircuitSummary>,
      *     messages: list<MessageSummary>
      * }
      */
@@ -40,11 +42,7 @@ final readonly class DeliveryStatusSearcherResponse
     {
         return [
             'counts' => $this->counts,
-            'circuit' => [
-                'open' => $this->circuitOpenUntil !== null,
-                'open_until' => $this->circuitOpenUntil,
-                'consecutive_failures' => $this->consecutiveFailures,
-            ],
+            'circuits' => $this->circuits,
             'messages' => $this->messages,
         ];
     }

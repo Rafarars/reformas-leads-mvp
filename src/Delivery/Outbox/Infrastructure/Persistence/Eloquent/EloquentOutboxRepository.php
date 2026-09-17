@@ -84,6 +84,7 @@ final class EloquentOutboxRepository implements OutboxRepository
 
         return OutboxMessage::fromPrimitives([
             'id' => (string) $model->getAttribute('id'),
+            'destination' => (string) $model->getAttribute('destination'),
             'event_name' => (string) $model->getAttribute('event_name'),
             'aggregate_id' => (string) $model->getAttribute('aggregate_id'),
             'payload' => $payload,

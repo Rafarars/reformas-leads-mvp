@@ -7,6 +7,7 @@ use Reformas\Leads\Classification\Application\Fail\LeadClassificationFailureReco
 use Reformas\Leads\Classification\Application\Generate\ClassifyLeadOnLeadReceived;
 use Reformas\Leads\Classification\Application\Generate\LeadClassificationGenerator;
 use Reformas\Leads\Classification\Application\Generate\LeadClassificationGeneratorRequest;
+use Reformas\Leads\Classification\Application\LeadContactFinder;
 use Reformas\Leads\Classification\Application\Review\LeadClassificationReviewer;
 use Reformas\Leads\Classification\Application\Review\LeadClassificationReviewerRequest;
 use Reformas\Leads\Classification\Application\Search\LeadClassificationsSearcher;
@@ -38,13 +39,14 @@ beforeEach(function () {
     $this->leads = new InMemoryLeadRepository;
     $this->classifications = new InMemoryLeadClassificationRepository;
     $this->clock = new FixedClock;
+    $this->events = new SpyEventBus;
 
     $this->leads->save(Lead::receive(new LeadId(LEAD_TO_CLASSIFY), LeadSubmissionMother::create(zone: 'Valencia', budget: 8_500, description: 'Fuga bajo la ducha'), $this->clock->now()));
 });
 
 function generateClassification(object $test, LeadClassifier $classifier, string $leadId = LEAD_TO_CLASSIFY): void
 {
-    (new LeadClassificationGenerator($test->leads, $test->classifications, $classifier, $test->clock, 0.7))(new LeadClassificationGeneratorRequest($leadId));
+    (new LeadClassificationGenerator($test->leads, $test->classifications, $classifier, new SpyTransaction, $test->events, $test->clock, 0.7))(new LeadClassificationGeneratorRequest($leadId));
 }
 
 function storedClassification(object $test): ?array
@@ -104,14 +106,14 @@ it('fails when the lead does not exist', function () {
 })->throws(LeadNotFoundError::class);
 
 it('sends the lead to a person when the retries run out, unless it got classified meanwhile', function () {
-    $record = new LeadClassificationFailureRecorder($this->classifications, $this->clock);
+    $record = new LeadClassificationFailureRecorder($this->classifications, new LeadContactFinder($this->leads), new SpyTransaction, $this->events, $this->clock);
 
     $record(new LeadClassificationFailureRecorderRequest(LEAD_TO_CLASSIFY));
     expect(storedClassification($this))->toMatchArray(['status' => 'needs_review', 'review_reason' => 'La IA no respondió tras varios intentos.']);
 
     $this->classifications = new InMemoryLeadClassificationRepository;
     generateClassification($this, CallbackLeadClassifier::proposing(ClassificationProposalMother::create()));
-    (new LeadClassificationFailureRecorder($this->classifications, $this->clock))(new LeadClassificationFailureRecorderRequest(LEAD_TO_CLASSIFY));
+    (new LeadClassificationFailureRecorder($this->classifications, new LeadContactFinder($this->leads), new SpyTransaction, $this->events, $this->clock))(new LeadClassificationFailureRecorderRequest(LEAD_TO_CLASSIFY));
 
     expect(storedClassification($this)['status'])->toBe('classified');
 });
@@ -177,7 +179,7 @@ it('approves the draft and publishes it inside the transaction', function () {
     $transaction = new SpyTransaction;
     $events = new SpyEventBus;
 
-    (new CustomerMessageDraftApprover($this->classifications, $transaction, $events, $this->clock))(new CustomerMessageDraftApproverRequest(LEAD_TO_CLASSIFY, 'Hola Ana, ¿nos mandas fotos?', 'ana@example.com'));
+    (new CustomerMessageDraftApprover($this->classifications, new LeadContactFinder($this->leads), $transaction, $events, $this->clock))(new CustomerMessageDraftApproverRequest(LEAD_TO_CLASSIFY, 'Hola Ana, ¿nos mandas fotos?', 'ana@example.com'));
 
     expect(storedClassification($this))->toMatchArray(['draft_status' => 'approved', 'draft_message' => 'Hola Ana, ¿nos mandas fotos?'])
         ->and($transaction->runs)->toBe(1)
@@ -188,8 +190,55 @@ it('rejects an empty message before touching anything', function () {
     generateClassification($this, CallbackLeadClassifier::proposing(ClassificationProposalMother::create()));
     $transaction = new SpyTransaction;
 
-    expect(fn () => (new CustomerMessageDraftApprover($this->classifications, $transaction, new SpyEventBus, $this->clock))(new CustomerMessageDraftApproverRequest(LEAD_TO_CLASSIFY, '  ', 'ana@example.com')))
+    expect(fn () => (new CustomerMessageDraftApprover($this->classifications, new LeadContactFinder($this->leads), $transaction, new SpyEventBus, $this->clock))(new CustomerMessageDraftApproverRequest(LEAD_TO_CLASSIFY, '  ', 'ana@example.com')))
         ->toThrow(InvalidCustomerMessageDraftError::class)
         ->and($transaction->runs)->toBe(0)
         ->and(storedClassification($this)['draft_status'])->toBe('pending');
+});
+
+it('announces the classification with who to contact, so the team can act on it', function () {
+    generateClassification($this, CallbackLeadClassifier::proposing(ClassificationProposalMother::create()));
+
+    $lead = $this->leads->search(new LeadId(LEAD_TO_CLASSIFY))->toPrimitives();
+    $event = $this->events->published[0];
+
+    expect(array_map(static fn ($event): string => $event::eventName(), $this->events->published))->toBe(['lead.classified'])
+        ->and($event->body())->toMatchArray([
+            'status' => 'classified',
+            'category' => 'bathroom',
+            'urgency' => 'high',
+            'summary' => 'Cambiar el plato de ducha por una fuga que afecta al vecino.',
+            'customer' => ['name' => $lead['name'], 'email' => $lead['email'], 'phone' => $lead['phone']],
+        ])
+        ->and($event->body())->not->toHaveKey('draft_message');
+});
+
+it('also announces a lead that could not be classified, so it does not wait unseen', function () {
+    generateClassification($this, CallbackLeadClassifier::throwing(new InvalidClassifierOutputException('texto libre')));
+    (new LeadClassificationFailureRecorder($this->classifications, new LeadContactFinder($this->leads), new SpyTransaction, $this->events, $this->clock))(new LeadClassificationFailureRecorderRequest(LEAD_TO_CLASSIFY));
+
+    expect(array_map(static fn ($event): array => [$event::eventName(), $event->body()['status']], $this->events->published))
+        ->toBe([['lead.classified', 'needs_review']]);
+});
+
+it('does not announce anything when the model is down and the queue will retry', function () {
+    expect(fn () => generateClassification($this, CallbackLeadClassifier::throwing(new ClassifierUnavailableException('HTTP 503'))))
+        ->toThrow(ClassifierUnavailableException::class)
+        ->and($this->events->published)->toBe([]);
+});
+
+it('sends the recipient with the approved message', function () {
+    generateClassification($this, CallbackLeadClassifier::proposing(ClassificationProposalMother::create()));
+    $events = new SpyEventBus;
+
+    (new CustomerMessageDraftApprover($this->classifications, new LeadContactFinder($this->leads), new SpyTransaction, $events, $this->clock))(new CustomerMessageDraftApproverRequest(LEAD_TO_CLASSIFY, 'Hola Ana', 'equipo@example.com'));
+
+    $lead = $this->leads->search(new LeadId(LEAD_TO_CLASSIFY))->toPrimitives();
+
+    expect($events->published[0]->body())->toBe([
+        'lead_id' => LEAD_TO_CLASSIFY,
+        'message' => 'Hola Ana',
+        'approved_by' => 'equipo@example.com',
+        'customer' => ['name' => $lead['name'], 'email' => $lead['email'], 'phone' => $lead['phone']],
+    ]);
 });

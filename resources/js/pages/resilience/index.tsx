@@ -12,6 +12,7 @@ type Counts = { pending: number; delivered: number; dead: number };
 
 type MessageSummary = {
     id: string;
+    destination: string;
     event: string;
     lead_name: string | null;
     repeated: boolean;
@@ -25,11 +26,12 @@ type MessageSummary = {
 
 type Delivery = {
     counts: Counts;
-    circuit: {
+    circuits: {
+        destination: string;
         open: boolean;
         open_until: string | null;
         consecutive_failures: number;
-    };
+    }[];
     messages: MessageSummary[];
 };
 
@@ -44,6 +46,12 @@ type PageProps = { errors: Record<string, string> };
 
 const DEMO_LEADS = 10;
 const POLL_EVERY_MS = 2000;
+
+const destinationLabels: Record<string, string> = {
+    crm: 'CRM',
+    team: 'Equipo (Telegram)',
+    customer: 'Cliente (Gmail)',
+};
 
 const statusLabels: Record<MessageSummary['status'], string> = {
     pending: 'Pendiente',
@@ -208,26 +216,44 @@ export default function Resilience({
 
                     <Card
                         title="Circuit breaker"
-                        detail="Deja de insistir contra un destino caído"
-                        data-test="resilience-circuit"
-                        data-state={delivery.circuit.open ? 'open' : 'closed'}
+                        detail="Uno por destino: si cae uno, los demás siguen entregando"
+                        data-test="resilience-circuits"
                     >
-                        <Badge
-                            variant={
-                                delivery.circuit.open
-                                    ? 'destructive'
-                                    : 'secondary'
-                            }
-                        >
-                            {delivery.circuit.open
-                                ? `Abierto hasta las ${time(delivery.circuit.open_until)}`
-                                : 'Cerrado'}
-                        </Badge>
-                        <Counter
-                            label="Fallos seguidos"
-                            value={delivery.circuit.consecutive_failures}
-                            name="circuit-failures"
-                        />
+                        <div className="space-y-2">
+                            {delivery.circuits.map((circuit) => (
+                                <div
+                                    key={circuit.destination}
+                                    data-test={`resilience-circuit-${circuit.destination}`}
+                                    data-state={
+                                        circuit.open ? 'open' : 'closed'
+                                    }
+                                    className="flex items-center justify-between gap-2 text-sm"
+                                >
+                                    <span>
+                                        {destinationLabels[
+                                            circuit.destination
+                                        ] ?? circuit.destination}
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                        <span className="text-muted-foreground text-xs tabular-nums">
+                                            {circuit.consecutive_failures}{' '}
+                                            fallos
+                                        </span>
+                                        <Badge
+                                            variant={
+                                                circuit.open
+                                                    ? 'destructive'
+                                                    : 'secondary'
+                                            }
+                                        >
+                                            {circuit.open
+                                                ? `Abierto hasta las ${time(circuit.open_until)}`
+                                                : 'Cerrado'}
+                                        </Badge>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
                     </Card>
 
                     <Card
@@ -271,6 +297,7 @@ export default function Resilience({
                         <thead className="text-muted-foreground text-left text-xs">
                             <tr className="border-b">
                                 <th className="p-3 font-medium">Lead</th>
+                                <th className="p-3 font-medium">Destino</th>
                                 <th className="p-3 font-medium">Estado</th>
                                 <th className="p-3 font-medium">Intentos</th>
                                 <th className="p-3 font-medium">
@@ -286,7 +313,7 @@ export default function Resilience({
                             {delivery.messages.length === 0 && (
                                 <tr>
                                     <td
-                                        colSpan={6}
+                                        colSpan={7}
                                         className="text-muted-foreground p-6 text-center"
                                     >
                                         Todavía no hay avisos.
@@ -303,11 +330,21 @@ export default function Resilience({
                                     <td className="p-3">
                                         <p>{message.lead_name ?? '—'}</p>
                                         <p className="text-muted-foreground text-xs">
-                                            {message.repeated
-                                                ? 'Contacto repetido'
-                                                : 'Lead nuevo'}{' '}
+                                            {message.event === 'lead.received'
+                                                ? message.repeated
+                                                    ? 'Contacto repetido'
+                                                    : 'Lead nuevo'
+                                                : message.event ===
+                                                    'lead.classified'
+                                                  ? 'Clasificado'
+                                                  : 'Mensaje aprobado'}{' '}
                                             · {time(message.created_at)}
                                         </p>
+                                    </td>
+                                    <td className="p-3 text-xs">
+                                        {destinationLabels[
+                                            message.destination
+                                        ] ?? message.destination}
                                     </td>
                                     <td className="p-3">
                                         <Badge

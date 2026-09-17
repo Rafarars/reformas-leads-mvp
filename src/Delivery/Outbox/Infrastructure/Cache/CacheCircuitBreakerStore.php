@@ -11,11 +11,11 @@ use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
 // En la caché compartida: todos los workers ven el mismo circuito.
 final class CacheCircuitBreakerStore implements CircuitBreakerStore
 {
-    private const KEY = 'delivery:circuit-breaker';
+    private const KEY = 'delivery:circuit-breaker:';
 
-    public function state(): CircuitBreakerState
+    public function state(string $destination): CircuitBreakerState
     {
-        $stored = Cache::get(self::KEY);
+        $stored = Cache::get(self::KEY.$destination);
 
         if (! is_array($stored)) {
             return CircuitBreakerState::closed();
@@ -29,9 +29,9 @@ final class CacheCircuitBreakerStore implements CircuitBreakerStore
         );
     }
 
-    public function save(CircuitBreakerState $state): void
+    public function save(string $destination, CircuitBreakerState $state): void
     {
-        Cache::forever(self::KEY, [
+        Cache::forever(self::KEY.$destination, [
             'failures' => $state->consecutiveFailures,
             'open_until' => $state->openUntil?->format(DateTimeInterface::ATOM),
         ]);

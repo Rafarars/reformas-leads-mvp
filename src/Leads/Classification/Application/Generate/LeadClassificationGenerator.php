@@ -8,11 +8,14 @@ use Reformas\Leads\Classification\Domain\InvalidClassifierOutputException;
 use Reformas\Leads\Classification\Domain\LeadClassification;
 use Reformas\Leads\Classification\Domain\LeadClassificationRepository;
 use Reformas\Leads\Classification\Domain\LeadClassifier;
+use Reformas\Leads\Classification\Domain\LeadContact;
 use Reformas\Leads\Classification\Domain\LeadToClassify;
 use Reformas\Leads\Lead\Domain\LeadId;
 use Reformas\Leads\Lead\Domain\LeadNotFoundError;
 use Reformas\Leads\Lead\Domain\LeadRepository;
 use Reformas\Shared\Domain\Clock;
+use Reformas\Shared\Domain\EventBus;
+use Reformas\Shared\Domain\Transaction;
 
 final readonly class LeadClassificationGenerator
 {
@@ -20,6 +23,8 @@ final readonly class LeadClassificationGenerator
         private LeadRepository $leads,
         private LeadClassificationRepository $classifications,
         private LeadClassifier $classifier,
+        private Transaction $transaction,
+        private EventBus $eventBus,
         private Clock $clock,
         private float $minConfidence,
     ) {}
@@ -37,17 +42,22 @@ final readonly class LeadClassificationGenerator
         }
 
         $lead = ($this->leads->search($leadId) ?? throw new LeadNotFoundError($request->leadId))->toPrimitives();
+        $customer = new LeadContact($lead['name'], $lead['email'], $lead['phone']);
 
         $toClassify = new LeadToClassify($lead['renovation_type'], $lead['zone'], $lead['budget'], $lead['description']);
 
+        // La llamada al modelo va fuera de la transacción: no se retiene la base mientras responde.
         try {
-            $classification = LeadClassification::fromProposal($leadId, $this->classifier->classify($toClassify), $this->minConfidence, $this->clock->now());
+            $classification = LeadClassification::fromProposal($leadId, $this->classifier->classify($toClassify), $this->minConfidence, $customer, $this->clock->now());
         } catch (InvalidClassifierOutputException) {
-            $classification = LeadClassification::unclassified($leadId, 'La IA respondió algo que no se pudo validar.', $this->clock->now());
+            $classification = LeadClassification::unclassified($leadId, 'La IA respondió algo que no se pudo validar.', $customer, $this->clock->now());
         } catch (ClassifierNotConfiguredException) {
-            $classification = LeadClassification::unclassified($leadId, 'La clasificación automática no está configurada o el modelo rechazó la petición.', $this->clock->now());
+            $classification = LeadClassification::unclassified($leadId, 'La clasificación automática no está configurada o el modelo rechazó la petición.', $customer, $this->clock->now());
         }
 
-        $this->classifications->save($classification);
+        $this->transaction->run(function () use ($classification): void {
+            $this->classifications->save($classification);
+            $this->eventBus->publish(...$classification->pullDomainEvents());
+        });
     }
 }

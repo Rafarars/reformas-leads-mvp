@@ -23,7 +23,7 @@ beforeEach(function () {
 function savedOutboxMessage(int $number, bool $dead = false): OutboxMessage
 {
     $message = OutboxMessage::create(
-        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)),
+        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'crm',
         'lead.received',
         '00000000-0000-7000-8000-0000000000aa',
         ['name' => 'Ana García', 'repeated' => false],
@@ -58,7 +58,9 @@ it('shows the outbox and the simulated CRM', function () {
             ->where('crm.rejected', 3)
             ->where('delivery.counts.pending', 1)
             ->where('delivery.counts.dead', 1)
-            ->where('delivery.circuit.open', false)
+            ->where('delivery.circuits.0.destination', 'crm')
+            ->where('delivery.circuits.0.open', false)
+            ->has('delivery.circuits', 3)
             ->has('delivery.messages', 2));
 });
 

@@ -133,7 +133,8 @@ it('approves the draft from the panel and leaves the notice in the outbox', func
         ->draft_status->toBe('approved')
         ->draft_message->toBe('Hola Ana, gracias. ¿Nos mandas fotos?')
         ->and(DB::table('outbox_messages')->where('event_name', 'lead.customer_message_approved')->where('aggregate_id', $leadId)->exists())->toBeTrue();
-    Queue::assertPushed(DeliverOutboxMessageJob::class, 2);
+    // Recibido (CRM), clasificado (equipo) y aprobado (cliente): un mensaje por destino.
+    Queue::assertPushed(DeliverOutboxMessageJob::class, 3);
 
     $this->actingAs($this->user)
         ->post(route('classification.draft.approve', ['lead' => $leadId]), ['message' => 'Otra vez'])

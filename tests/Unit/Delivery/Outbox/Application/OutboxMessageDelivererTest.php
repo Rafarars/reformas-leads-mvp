@@ -32,10 +32,10 @@ function outboxDeliverer(object $test, MessageDeliverer $deliverer): OutboxMessa
     );
 }
 
-function pendingMessage(object $test, int $number = 1): string
+function pendingMessage(object $test, int $number = 1, string $destination = 'crm'): string
 {
     $id = sprintf('00000000-0000-7000-8000-%012d', $number);
-    $test->outbox->save(OutboxMessage::create(new OutboxMessageId($id), 'lead.received', '00000000-0000-7000-8000-0000000000aa', ['repeated' => false], $test->clock->now()));
+    $test->outbox->save(OutboxMessage::create(new OutboxMessageId($id), $destination, 'lead.received', '00000000-0000-7000-8000-0000000000aa', ['repeated' => false], $test->clock->now()));
 
     return $id;
 }
@@ -156,4 +156,21 @@ it('gives a replayed message a new retry window', function () {
 
     expect($outcome->type)->toBe(DeliveryOutcomeType::RetryScheduled)
         ->and(storedMessage($this, $id)['status'])->toBe('pending');
+});
+
+it('keeps delivering to the other destinations while one of them is down', function () {
+    $crm = pendingMessage($this, 1, 'crm');
+    $team = pendingMessage($this, 2, 'team');
+    $deliver = outboxDeliverer($this, new CallbackMessageDeliverer(
+        static fn (OutboxMessage $message): DeliveryResult => $message->destination() === 'crm' ? DeliveryResult::failed('HTTP 503') : DeliveryResult::succeeded(),
+    ));
+
+    // Cinco fallos del CRM abren solo su circuito.
+    foreach (range(1, 5) as $attempt) {
+        $this->outbox->save(OutboxMessage::fromPrimitives([...storedMessage($this, $crm), 'next_attempt_at' => $this->clock->now()->format(DATE_ATOM)]));
+        $deliver(new OutboxMessageDelivererRequest($crm));
+    }
+
+    expect($deliver(new OutboxMessageDelivererRequest(pendingMessage($this, 3, 'crm')))->type)->toBe(DeliveryOutcomeType::CircuitOpen)
+        ->and($deliver(new OutboxMessageDelivererRequest($team))->type)->toBe(DeliveryOutcomeType::Delivered);
 });

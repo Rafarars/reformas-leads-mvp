@@ -13,6 +13,7 @@ use Reformas\Leads\Classification\Domain\InvalidProjectSummaryError;
 use Reformas\Leads\Classification\Domain\InvalidUrgencyError;
 use Reformas\Leads\Classification\Domain\InvalidWorkCategoryError;
 use Reformas\Leads\Classification\Domain\LeadClassification;
+use Reformas\Leads\Classification\Domain\LeadContact;
 use Reformas\Leads\Classification\Domain\LeadFindings;
 use Reformas\Leads\Classification\Domain\ProjectSummary;
 use Reformas\Leads\Classification\Domain\Urgency;
@@ -23,7 +24,7 @@ use Tests\Unit\Leads\Classification\ClassificationProposalMother;
 const CLASSIFIED_LEAD = '00000000-0000-7000-8000-000000000001';
 
 it('accepts the proposal when the model is confident enough', function () {
-    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.9), 0.7, new DateTimeImmutable);
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.9), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable);
 
     expect($classification->toPrimitives())->toMatchArray([
         'status' => 'classified',
@@ -36,7 +37,7 @@ it('accepts the proposal when the model is confident enough', function () {
 });
 
 it('keeps a doubtful proposal but sends it to a person', function () {
-    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.69), 0.7, new DateTimeImmutable);
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.69), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable);
 
     expect($classification->toPrimitives())->toMatchArray([
         'status' => 'needs_review',
@@ -46,13 +47,13 @@ it('keeps a doubtful proposal but sends it to a person', function () {
 });
 
 it('does not send a proposal exactly at the threshold to review', function () {
-    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.7), 0.7, new DateTimeImmutable);
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.7), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable);
 
     expect($classification->toPrimitives()['status'])->toBe('classified');
 });
 
 it('sends a lead without a usable proposal to a person, without inventing a category', function () {
-    $classification = LeadClassification::unclassified(new LeadId(CLASSIFIED_LEAD), 'La IA no respondió.', new DateTimeImmutable);
+    $classification = LeadClassification::unclassified(new LeadId(CLASSIFIED_LEAD), 'La IA no respondió.', new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable);
 
     expect($classification->toPrimitives())->toMatchArray([
         'status' => 'needs_review',
@@ -64,7 +65,7 @@ it('sends a lead without a usable proposal to a person, without inventing a cate
 });
 
 it('lets a person override the model and keeps what the model said', function () {
-    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.5), 0.7, new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(0.5), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
 
     $classification->review(WorkCategory::Installations, Urgency::Medium, 'ana@example.com', new DateTimeImmutable('2026-09-15T11:00:00+00:00'));
 
@@ -82,7 +83,7 @@ it('lets a person override the model and keeps what the model said', function ()
 });
 
 it('survives a round trip through primitives', function () {
-    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
 
     expect(LeadClassification::fromPrimitives($classification->toPrimitives())->toPrimitives())->toBe($classification->toPrimitives());
 });
@@ -112,7 +113,7 @@ it('accepts the limits of the contract', function () {
 });
 
 it('keeps the insights and a pending draft from the proposal', function () {
-    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable);
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable);
 
     expect($classification->toPrimitives())->toMatchArray([
         'summary' => 'Cambiar el plato de ducha por una fuga que afecta al vecino.',
@@ -120,13 +121,14 @@ it('keeps the insights and a pending draft from the proposal', function () {
         'contradictions' => [],
         'draft_status' => 'pending',
         'draft_approved_by' => null,
-    ])->and($classification->pullDomainEvents())->toBe([]);
+    ])->and(array_map(static fn ($event): string => $event::eventName(), $classification->pullDomainEvents()))->toBe(['lead.classified']);
 });
 
 it('approves the text the person settled on and announces it', function () {
-    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
+    $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable('2026-09-15T10:00:00+00:00'));
 
-    $classification->approveDraft(new CustomerMessageDraft('Hola Ana, texto corregido.'), 'ana@example.com', new DateTimeImmutable('2026-09-15T12:00:00+00:00'));
+    $classification->pullDomainEvents();
+    $classification->approveDraft(new CustomerMessageDraft('Hola Ana, texto corregido.'), 'ana@example.com', new LeadContact('Ana', 'ana@example.com', '600111222'), new DateTimeImmutable('2026-09-15T12:00:00+00:00'));
 
     $events = $classification->pullDomainEvents();
 
@@ -138,17 +140,22 @@ it('approves the text the person settled on and announces it', function () {
     ])
         ->and($events)->toHaveCount(1)
         ->and($events[0])->toBeInstanceOf(CustomerMessageApprovedDomainEvent::class)
-        ->and($events[0]->body())->toBe(['lead_id' => CLASSIFIED_LEAD, 'message' => 'Hola Ana, texto corregido.', 'approved_by' => 'ana@example.com']);
+        ->and($events[0]->body())->toBe([
+            'lead_id' => CLASSIFIED_LEAD,
+            'message' => 'Hola Ana, texto corregido.',
+            'approved_by' => 'ana@example.com',
+            'customer' => ['name' => 'Ana', 'email' => 'ana@example.com', 'phone' => '600111222'],
+        ]);
 });
 
 it('refuses to approve twice or when there is no draft', function (Closure $classification) {
-    $classification()->approveDraft(new CustomerMessageDraft('Hola'), 'ana@example.com', new DateTimeImmutable);
+    $classification()->approveDraft(new CustomerMessageDraft('Hola'), 'ana@example.com', new LeadContact('Ana', 'ana@example.com', '600111222'), new DateTimeImmutable);
 })->with([
     'already approved' => [function () {
-        $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new DateTimeImmutable);
-        $classification->approveDraft(new CustomerMessageDraft('Hola'), 'ana@example.com', new DateTimeImmutable);
+        $classification = LeadClassification::fromProposal(new LeadId(CLASSIFIED_LEAD), ClassificationProposalMother::create(), 0.7, new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable);
+        $classification->approveDraft(new CustomerMessageDraft('Hola'), 'ana@example.com', new LeadContact('Ana', 'ana@example.com', '600111222'), new DateTimeImmutable);
 
         return $classification;
     }],
-    'no proposal' => [fn () => LeadClassification::unclassified(new LeadId(CLASSIFIED_LEAD), 'x', new DateTimeImmutable)],
+    'no proposal' => [fn () => LeadClassification::unclassified(new LeadId(CLASSIFIED_LEAD), 'x', new LeadContact('Ana García', 'ana@example.com', '+34600111222'), new DateTimeImmutable)],
 ])->throws(CustomerMessageDraftNotPendingError::class);

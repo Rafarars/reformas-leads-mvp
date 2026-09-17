@@ -75,14 +75,15 @@ un día, la clave solo ocupa espacio.
 **Qué haría falta:** el trait `MassPrunable` de Laravel en `IdempotencyKey` y `model:prune` en el
 planificador. Implica tener el planificador corriendo, que hoy no está en el compose.
 
-## Flujos de n8n y ampliar la clasificación
+## Deduplicar en n8n con la `Idempotency-Key`
 
-**Qué:** el paso 7 (avisar al equipo por Telegram y Gmail desde n8n) y completar la clasificación con
-la información que falta o es contradictoria, un resumen y el borrador del mensaje al cliente.
+**Qué:** que los flujos de n8n recuerden el `Idempotency-Key` de cada aviso y descarten los repetidos.
 
-**Por qué no ahora:** n8n recibirá los avisos del outbox en lugar del CRM simulado cambiando solo
-`DELIVERY_WEBHOOK_URL`: la entrega, los reintentos y el circuito ya están resueltos. La ampliación
-reutiliza el mismo puerto `LeadClassifier` y la misma bandeja de revisión.
+**Por qué no ahora:** el outbox entrega *al menos una vez*. Si Telegram envía el mensaje pero la respuesta
+de n8n se pierde por el camino, el reintento lo vuelve a enviar. Es raro y, para un aviso interno, tolerable.
+
+**Qué haría falta:** un nodo que guarde la clave (Redis o una tabla) antes de enviar y corte el flujo si ya
+existe. Para el correo al cliente pesa más que para Telegram.
 
 ## Autenticar el CRM simulado
 

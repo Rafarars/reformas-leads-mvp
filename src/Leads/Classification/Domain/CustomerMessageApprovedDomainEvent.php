@@ -13,6 +13,7 @@ final readonly class CustomerMessageApprovedDomainEvent extends DomainEvent
         DateTimeImmutable $occurredOn,
         private string $message,
         private string $approvedBy,
+        private LeadContact $customer,
     ) {
         parent::__construct($aggregateId, $occurredOn);
     }
@@ -24,6 +25,11 @@ final readonly class CustomerMessageApprovedDomainEvent extends DomainEvent
 
     public function body(): array
     {
-        return ['lead_id' => $this->aggregateId, 'message' => $this->message, 'approved_by' => $this->approvedBy];
+        return [
+            'lead_id' => $this->aggregateId,
+            'message' => $this->message,
+            'approved_by' => $this->approvedBy,
+            'customer' => $this->customer->toPrimitives(),
+        ];
     }
 }

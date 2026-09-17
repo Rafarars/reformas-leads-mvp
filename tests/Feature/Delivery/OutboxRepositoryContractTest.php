@@ -17,7 +17,7 @@ dataset('outbox repositories', [
 function contractOutboxMessage(): OutboxMessage
 {
     return OutboxMessage::create(
-        new OutboxMessageId('00000000-0000-7000-8000-000000000001'),
+        new OutboxMessageId('00000000-0000-7000-8000-000000000001'), 'crm',
         'lead.received',
         '00000000-0000-7000-8000-0000000000aa',
         ['name' => 'Ana García', 'budget' => 18_000, 'zone' => null, 'repeated' => false],
@@ -57,7 +57,7 @@ it('keeps the delivery state when saved again', function (OutboxRepository $repo
 it('finds the pending messages whose retry is overdue, oldest first', function (OutboxRepository $repository) {
     $at = static fn (string $time): DateTimeImmutable => new DateTimeImmutable('2026-09-15T'.$time.'+00:00');
     $message = static fn (int $number, string $time): OutboxMessage => OutboxMessage::create(
-        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'lead.received', '00000000-0000-7000-8000-0000000000aa', [], $at($time),
+        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'crm', 'lead.received', '00000000-0000-7000-8000-0000000000aa', [], $at($time),
     );
 
     $late = $message(1, '10:05:00');
@@ -79,7 +79,7 @@ it('finds the pending messages whose retry is overdue, oldest first', function (
 it('counts the messages by status', function (OutboxRepository $repository) {
     $at = new DateTimeImmutable('2026-09-15T10:00:00+00:00');
     $message = static fn (int $number): OutboxMessage => OutboxMessage::create(
-        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'lead.received', '00000000-0000-7000-8000-0000000000aa', [], $at,
+        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'crm', 'lead.received', '00000000-0000-7000-8000-0000000000aa', [], $at,
     );
 
     $pending = $message(1);
@@ -98,7 +98,7 @@ it('counts the messages by status', function (OutboxRepository $repository) {
 it('lists the latest messages first', function (OutboxRepository $repository) {
     foreach (['10:00:00', '10:02:00', '10:01:00'] as $number => $time) {
         $repository->save(OutboxMessage::create(
-            new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number + 1)), 'lead.received', '00000000-0000-7000-8000-0000000000aa', [],
+            new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number + 1)), 'crm', 'lead.received', '00000000-0000-7000-8000-0000000000aa', [],
             new DateTimeImmutable('2026-09-15T'.$time.'+00:00'),
         ));
     }

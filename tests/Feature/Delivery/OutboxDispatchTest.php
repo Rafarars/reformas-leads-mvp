@@ -31,7 +31,7 @@ it('queues the delivery of the notice once the lead is received', function () {
 it('re-queues only the pending messages whose retry is overdue', function () {
     $outbox = app(OutboxRepository::class);
     $message = static fn (int $number, string $createdAgo): OutboxMessage => OutboxMessage::create(
-        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)),
+        new OutboxMessageId(sprintf('00000000-0000-7000-8000-%012d', $number)), 'crm',
         'lead.received',
         '00000000-0000-7000-8000-0000000000aa',
         [],

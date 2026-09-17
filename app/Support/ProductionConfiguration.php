@@ -38,10 +38,12 @@ class ProductionConfiguration
             $problems[] = 'N8N_BASE_URL falta o apunta a localhost.';
         }
 
-        $deliveryHost = $this->hostOf(config('services.delivery.webhook_url'));
+        foreach (['crm' => 'DELIVERY_CRM_URL', 'team' => 'DELIVERY_TEAM_URL', 'customer' => 'DELIVERY_CUSTOMER_URL'] as $destination => $variable) {
+            $host = $this->hostOf(config("services.delivery.destinations.{$destination}.url"));
 
-        if (! is_string($deliveryHost) || $this->isLoopback($deliveryHost)) {
-            $problems[] = 'DELIVERY_WEBHOOK_URL falta o apunta a localhost.';
+            if (! is_string($host) || $this->isLoopback($host)) {
+                $problems[] = "{$variable} falta o apunta a localhost.";
+            }
         }
 
         return $problems;

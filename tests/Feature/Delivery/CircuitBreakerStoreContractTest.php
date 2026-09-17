@@ -11,14 +11,14 @@ dataset('circuit breaker stores', [
 ]);
 
 it('starts closed', function (CircuitBreakerStore $store) {
-    expect($store->state())->toEqual(CircuitBreakerState::closed());
+    expect($store->state('crm'))->toEqual(CircuitBreakerState::closed());
 })->with('circuit breaker stores');
 
 it('gives back the state it was given', function (CircuitBreakerStore $store) {
     $state = new CircuitBreakerState(5, new DateTimeImmutable('2026-09-15T10:00:30+00:00'));
 
-    $store->save($state);
+    $store->save('crm', $state);
 
-    expect($store->state()->consecutiveFailures)->toBe(5)
-        ->and($store->state()->openUntil?->format(DATE_ATOM))->toBe('2026-09-15T10:00:30+00:00');
+    expect($store->state('crm')->consecutiveFailures)->toBe(5)
+        ->and($store->state('crm')->openUntil?->format(DATE_ATOM))->toBe('2026-09-15T10:00:30+00:00');
 })->with('circuit breaker stores');

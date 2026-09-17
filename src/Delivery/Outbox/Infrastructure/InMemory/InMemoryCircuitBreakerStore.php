@@ -7,20 +7,16 @@ use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
 
 final class InMemoryCircuitBreakerStore implements CircuitBreakerStore
 {
-    private CircuitBreakerState $state;
+    /** @var array<string, CircuitBreakerState> */
+    private array $states = [];
 
-    public function __construct()
+    public function state(string $destination): CircuitBreakerState
     {
-        $this->state = CircuitBreakerState::closed();
+        return $this->states[$destination] ?? CircuitBreakerState::closed();
     }
 
-    public function state(): CircuitBreakerState
+    public function save(string $destination, CircuitBreakerState $state): void
     {
-        return $this->state;
-    }
-
-    public function save(CircuitBreakerState $state): void
-    {
-        $this->state = $state;
+        $this->states[$destination] = $state;
     }
 }
