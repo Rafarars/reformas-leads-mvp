@@ -112,18 +112,21 @@ los datos ya validados.
 **Por qué no ahora:** la clasificación, que sí decide, vive en Laravel con pruebas y validación. La
 cuota gratuita de Gemini (500 peticiones al día con Flash Lite) se reserva para ella.
 
-**Modelos gratuitos investigados** (septiembre de 2026; verificados en la documentación oficial los
-marcados):
+**Modelos gratuitos investigados** (septiembre de 2026):
 
-| Opción                                      | Modelos                                                          | Límite gratuito                                          | En n8n                            |
-| ------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------- | --------------------------------- |
-| **Groq** (verificado)                       | `qwen/qwen3.8-27b` (chino), `openai/gpt-oss-120b`, `gpt-oss-20b` | 30 por minuto, 1.000 al día, 8K tokens/min, sin tarjeta  | Nodo _Groq Chat Model_            |
-| OpenRouter (verificado)                     | Modelos `:free`                                                  | 20 por minuto, 50 al día (1.000 con 10 $ de créditos)    | Nodo _OpenRouter Chat Model_      |
-| Zhipu GLM Flash, SiliconFlow                | GLM, Qwen, DeepSeek                                              | Sin confirmar                                            | Nodo OpenAI con _Base URL_ propia |
-| DeepSeek, DashScope, Kimi, MiniMax directos | —                                                                | Sin capa gratuita o piden teléfono chino (sin verificar) | —                                 |
+| Opción                                      | Modelos gratis                                                   | Límite gratuito                                                                     | Datos                                                                                       | En n8n                                                        |
+| ------------------------------------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **Groq** ✅                                 | `qwen/qwen3.8-27b` (chino), `openai/gpt-oss-120b`, `gpt-oss-20b` | 30/min y 1.000/día por modelo (8K tokens/min), sin tarjeta, límite por organización | No retiene por defecto (registros hasta 30 días por abuso); _Zero Data Retention_ activable | _Groq Chat Model_ (subnodo de _AI Agent_ o _Basic LLM Chain_) |
+| **Z.ai / Zhipu** ✅ (modelos)               | `GLM-4.7-Flash`, `GLM-4.5-Flash`, `GLM-4.6V-Flash` (visión)      | Gratis según su tabla de precios; límites no publicados                             | Sin verificar                                                                               | _OpenAI Chat Model_ con _Base URL_ propia                     |
+| **OpenRouter** ✅                           | Modelos `:free`                                                  | 20/min y **50/día** (1.000 con 10 $ de créditos)                                    | Cada proveedor aplica su política                                                           | _OpenRouter Chat Model_                                       |
+| SiliconFlow (sin verificar)                 | Qwen3-8B, DeepSeek-R1-Distill-Qwen-7B (rotan)                    | Según terceros; oficialmente, 1 $ de crédito inicial                                | Sin verificar                                                                               | _OpenAI Chat Model_ con _Base URL_ propia                     |
+| DeepSeek, DashScope, Kimi, MiniMax directos | —                                                                | Sin capa gratuita o piden teléfono chino (sin verificar)                            | —                                                                                           | —                                                             |
 
-**Recomendación:** Groq con `qwen/qwen3.8-27b`, solo con datos ficticios (no se verificó su política de
-uso de datos).
+✅ = verificado en la documentación oficial del proveedor. Fuentes: `console.groq.com/docs/rate-limits`,
+`console.groq.com/docs/your-data`, `docs.z.ai/guides/overview/pricing`, `openrouter.ai/docs/api-reference/limits`.
+
+**Recomendación:** Groq con `qwen/qwen3.8-27b` para practicar; Z.ai `GLM-4.7-Flash` como segunda opción
+china. Siempre con datos ficticios. Las API keys van en las credenciales de n8n, no en `.env`.
 
 ## Notificación de errores en n8n
 
