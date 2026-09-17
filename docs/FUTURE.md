@@ -79,7 +79,7 @@ planificador. Implica tener el planificador corriendo, que hoy no está en el co
 
 **Qué:** que los flujos de n8n recuerden el `Idempotency-Key` de cada aviso y descarten los repetidos.
 
-**Por qué no ahora:** el outbox entrega *al menos una vez*. Si Telegram envía el mensaje pero la respuesta
+**Por qué no ahora:** el outbox entrega _al menos una vez_. Si Telegram envía el mensaje pero la respuesta
 de n8n se pierde por el camino, el reintento lo vuelve a enviar. Es raro y, para un aviso interno, tolerable.
 
 **Qué haría falta:** un nodo que guarde la clave (Redis o una tabla) antes de enviar y corte el flujo si ya
