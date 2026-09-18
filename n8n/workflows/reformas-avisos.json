@@ -1,0 +1,178 @@
+{
+    "name": "Reformas · Avisos",
+    "nodes": [
+        {
+            "parameters": {
+                "sendTo": "={{ $json.body.data.customer.email }}",
+                "subject": "=Presupuesto para {{ $json.body.data.customer.name }}",
+                "emailType": "text",
+                "message": "={{ $json.body.data.message }}",
+                "options": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 2.2,
+            "position": [640, 0],
+            "id": "46e4e5a5-769f-4ea7-ba1c-cd77e0ab8c31",
+            "name": "Send a message",
+            "webhookId": "605e9d4b-5a4c-4096-8355-234556e862ea",
+            "credentials": {
+                "gmailOAuth2": {
+                    "name": "Gmail account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "reformas-events",
+                "responseMode": "lastNode",
+                "options": {}
+            },
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2.1,
+            "position": [-16, 16],
+            "id": "5156c49f-9ee4-4101-a776-35becaf0f729",
+            "name": "Webhook",
+            "webhookId": "d4b7f063-a733-4dec-8a1b-7346f7236f5a"
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "lead.classified",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        },
+                                        "id": "b1e273a1-fb80-4e2d-9287-757d0e27bd21"
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "equipo"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 3
+                                },
+                                "conditions": [
+                                    {
+                                        "id": "f855f8f8-a7e3-49d4-8322-c729f915cd11",
+                                        "leftValue": "={{ $json.body.event }}",
+                                        "rightValue": "lead.customer_message_approved",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals",
+                                            "name": "filter.operator.equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "cliente"
+                        }
+                    ]
+                },
+                "options": {
+                    "fallbackOutput": "extra"
+                }
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.4,
+            "position": [224, 0],
+            "id": "471f3eec-cb2e-4d89-be5e-35cfa5b7c77f",
+            "name": "Switch"
+        },
+        {
+            "parameters": {
+                "chatId": "REEMPLAZAR_POR_TU_TELEGRAM_CHAT_ID",
+                "text": "={{ $json.body.data.status === 'needs_review' ? '⚠️ Lead para revisar a mano' : '🆕 Lead clasificado' }}\nUrgencia: {{ ({ low: 'baja', medium: 'media', high: '🔴 ALTA' })[$json.body.data.urgency] ?? 'sin definir' }} · Categoría: {{ ({ kitchen: 'cocina', bathroom: 'baño', full_home: 'vivienda completa', facade: 'fachada', installations: 'instalaciones', other: 'otra' })[$json.body.data.category] ?? 'sin definir' }}\n\n{{ $json.body.data.summary ?? $json.body.data.review_reason }}\n\nFalta: {{ $json.body.data.missing_information?.join(', ') || 'nada' }}\nNo cuadra: {{ $json.body.data.contradictions?.join(', ') || 'nada' }}\n\n👤 {{ $json.body.data.customer.name }} · {{ $json.body.data.customer.phone }}",
+                "additionalFields": {
+                    "appendAttribution": false
+                }
+            },
+            "type": "n8n-nodes-base.telegram",
+            "typeVersion": 1.2,
+            "position": [624, -192],
+            "id": "56f9e772-5cb2-49e9-a86a-53caa2cbddd8",
+            "name": "Send a text message",
+            "webhookId": "11cae658-27af-4a6b-84e9-e975fae43320",
+            "credentials": {
+                "telegramApi": {
+                    "name": "Telegram account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "errorMessage": "Evento no soportado por este flujo"
+            },
+            "type": "n8n-nodes-base.stopAndError",
+            "typeVersion": 1,
+            "position": [640, 224],
+            "id": "a78c77cb-e272-4676-b1c8-f30e52194fa4",
+            "name": "Stop and Error"
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Switch",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Switch": {
+            "main": [
+                [
+                    {
+                        "node": "Send a text message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Send a message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Stop and Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "binaryMode": "separate"
+    }
+}

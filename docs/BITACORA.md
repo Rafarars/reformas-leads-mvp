@@ -159,10 +159,19 @@ ni credenciales por comando. Resultado y trampas en `docs/N8N.md`. Resumen:
 4. **El editor de expresiones de n8n** no acepta saltos de línea dentro de un único `{{ }}` y cierra
    llaves por su cuenta.
 
+### Unificación en un solo flujo
+
+Rafael preguntó si hacían falta dos flujos. No: un flujo con **Switch** demuestra más manejo de n8n y la
+resiliencia no cambia, porque vive en Laravel. Quedó `Reformas · Avisos` (Webhook `reformas-events` →
+Switch → Telegram / Gmail / `Stop and Error`), con los dos destinos de Laravel apuntando a la misma URL y
+los flujos anteriores despublicados. Detalle y verificación en `docs/N8N.md`.
+
+**Tropiezo propio:** al diagnosticar qué rutas respondían, se enviaron mensajes de prueba al flujo viejo
+de Telegram, que no filtraba por evento y mandó dos avisos vacíos al chat. Es el argumento a favor del
+Switch y del `Stop and Error`: **un flujo debe rechazar lo que no entiende**.
+
 ### Decisiones al cierre
 
-- **Unificar los dos flujos en uno ramificado** (`Reformas · Avisos`, con Switch): demuestra más manejo
-  de n8n y la resiliencia no cambia, porque vive en Laravel. En curso.
 - **Los Telegrams de las E2E en local se aceptan** (opción B de tres): filtrar por `@example.com` metería
   una regla de pruebas en producción.
 - **IA en n8n, más adelante**, para algo no crítico y con un modelo gratuito para no gastar la cuota de

@@ -125,6 +125,20 @@ cuota gratuita de Gemini (500 peticiones al día con Flash Lite) se reserva para
 ✅ = verificado en la documentación oficial del proveedor. Fuentes: `console.groq.com/docs/rate-limits`,
 `console.groq.com/docs/your-data`, `docs.z.ai/guides/overview/pricing`, `openrouter.ai/docs/api-reference/limits`.
 
+**Práctica pendiente (flujo aparte, fuera del camino de producción):**
+
+```
+Manual Trigger ──► Basic LLM Chain ──► (Telegram, opcional)
+                        │ Model
+                   Groq Chat Model  (qwen/qwen3.8-27b)
+```
+
+Los nodos de IA funcionan distinto a los demás: el modelo es un **subnodo** que se cuelga del nodo
+principal, no un paso de la línea. Cambiando el _Manual Trigger_ por un _Schedule Trigger_ sale el
+resumen diario. **No** se pone la IA en la rama `extra` del Switch: esa rama existe para fallar, y un
+nodo de IA ahí tapa el error y se dispara en cada reintento. Si se quiere IA en el camino real, el sitio
+sano es entre el Switch y Telegram, para reescribir el aviso con los datos ya validados.
+
 **Recomendación:** Groq con `qwen/qwen3.8-27b` para practicar; Z.ai `GLM-4.7-Flash` como segunda opción
 china. Siempre con datos ficticios. Las API keys van en las credenciales de n8n, no en `.env`.
 

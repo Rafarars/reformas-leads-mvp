@@ -12,13 +12,18 @@ el gestor cifrado de n8n (`N8N_ENCRYPTION_KEY`) o en `.env`, que no se versiona.
 ## Qué hace n8n y qué no
 
 ```
-LARAVEL (lógica de negocio, validación, reintentos)                 N8N (solo conecta canales)
-─────────────────────────────────────────────────────              ────────────────────────────
+LARAVEL (lógica de negocio, validación, reintentos)            N8N (solo conecta canales)
+──────────────────────────────────────────────────            ─────────────────────────────────────────
 lead.received ─────────────────► destino crm      ─► CRM simulado
 lead.classified ───────────────► destino team     ─┐
-lead.customer_message_approved ► destino customer ─┴─► Webhook ─► Telegram (equipo)
-                                                                └► Gmail (cliente)
+lead.customer_message_approved ► destino customer ─┴─► /webhook/reformas-events
+                                                        └─ Switch (body.event) ─┬─ equipo  ─► Telegram
+                                                                                ├─ cliente ─► Gmail
+                                                                                └─ extra   ─► Stop and Error
 ```
+
+**Un solo flujo en n8n, dos destinos en Laravel.** El reparto por canal lo hace el Switch; los reintentos y
+el circuit breaker siguen siendo por destino, así que un fallo de Gmail no frena los avisos de Telegram.
 
 - **La IA no corre en n8n.** Gemini se llama desde Laravel (`GeminiLeadClassifier`): la clasificación
   decide prioridades y qué se escribe al cliente, así que necesita pruebas, validación estricta contra
@@ -99,25 +104,39 @@ Se puede crear desde **Credentials** o **directamente desde el nodo** de Gmail
 
 ## 4. Flujos
 
-### Estado actual: dos flujos publicados
+### `Reformas · Avisos`: un flujo, tres ramas
 
-| Flujo                | Webhook (producción)              | Recibe                           | Acción   |
-| -------------------- | --------------------------------- | -------------------------------- | -------- |
-| `Reformas · Cliente` | `POST /webhook/reformas-customer` | `lead.customer_message_approved` | Gmail    |
-| `Reformas · Equipo`  | `POST /webhook/reformas-team`     | `lead.classified`                | Telegram |
+Exportado en [`n8n/workflows/reformas-avisos.json`](../n8n/workflows/reformas-avisos.json).
+`DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` apuntan los dos a `/webhook/reformas-events`
+(en Docker, `http://n8n:5678/webhook/reformas-events`).
 
-Laravel los llama con `DELIVERY_CUSTOMER_URL` y `DELIVERY_TEAM_URL` (en Docker:
-`http://n8n:5678/webhook/...`).
+| Nodo                    | Qué hace                                                                                                                                                                          |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Webhook**             | Puerta única: `POST reformas-events`                                                                                                                                              |
+| **Switch** (`Rules`)    | Regla 1: `{{ $json.body.event }}` = `lead.classified` → salida **equipo**. Regla 2: `lead.customer_message_approved` → **cliente**. **Fallback Output: Extra Output** → **extra** |
+| **Send a text message** | Telegram, rama `equipo`                                                                                                                                                           |
+| **Send a message**      | Gmail, rama `cliente`                                                                                                                                                             |
+| **Stop and Error**      | Rama `extra`: _"Evento no soportado por este flujo"_                                                                                                                              |
 
-### Nodo Webhook (común a los dos)
+**Por qué el `Stop and Error` y no ignorar lo desconocido:** sin él, el flujo terminaría bien y n8n
+respondería OK; Laravel daría por entregado un aviso que nadie atendió. Con el error, el aviso se
+reintenta y acaba **apartado y visible** en el panel de Resiliencia.
 
-| Campo          | Valor                                 | Por qué                                                                                                                                                                                  |
-| -------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| HTTP Method    | `POST`                                | El outbox envía por POST                                                                                                                                                                 |
-| Path           | `reformas-customer` / `reformas-team` | Es el final de la URL que llama Laravel                                                                                                                                                  |
-| Authentication | `None`                                | n8n solo es accesible en local y en la red del compose. Para desplegar: autenticación por cabecera (`docs/FUTURE.md`)                                                                    |
-| **Respond**    | **`When Last Node Finishes`**         | Con `Immediately` n8n responde OK **antes** de enviar: si Gmail o Telegram fallan, Laravel marca el aviso como entregado y se pierde. Así, un fallo devuelve error y el outbox reintenta |
-| Response Data  | `First Entry JSON`                    | A Laravel solo le importa si fue 2xx o no                                                                                                                                                |
+**Renombrar las salidas** del Switch (`equipo`, `cliente`) no es cosmético: en el lienzo se lee de un
+vistazo qué rama va a cada canal.
+
+El flujo anterior `Reformas · Equipo` quedó **despublicado**, no borrado: conserva su historial de
+ejecuciones y se puede volver a publicar si hiciera falta.
+
+### Nodo Webhook
+
+| Campo          | Valor                         | Por qué                                                                                                                                                                                  |
+| -------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| HTTP Method    | `POST`                        | El outbox envía por POST                                                                                                                                                                 |
+| Path           | `reformas-events`             | Es el final de la URL que llama Laravel                                                                                                                                                  |
+| Authentication | `None`                        | n8n solo es accesible en local y en la red del compose. Para desplegar: autenticación por cabecera (`docs/FUTURE.md`)                                                                    |
+| **Respond**    | **`When Last Node Finishes`** | Con `Immediately` n8n responde OK **antes** de enviar: si Gmail o Telegram fallan, Laravel marca el aviso como entregado y se pierde. Así, un fallo devuelve error y el outbox reintenta |
+| Response Data  | `First Entry JSON`            | A Laravel solo le importa si fue 2xx o no                                                                                                                                                |
 
 ### Nodo Gmail — `Send a message`
 
@@ -180,7 +199,7 @@ Por eso **aprobar un borrador en la app no sirve para diseñar**: Laravel llama 
 no a la de prueba. Para diseñar se envía un aviso de ejemplo a la de prueba:
 
 ```bash
-curl -s -X POST http://localhost:5678/webhook-test/reformas-customer \
+curl -s -X POST http://localhost:5678/webhook-test/reformas-events \
   -H 'Content-Type: application/json' -d @aviso-de-ejemplo.json
 ```
 
@@ -218,13 +237,18 @@ en el CI no ocurre porque n8n no tiene flujos.
 | Campos que apuntan a una estructura vieja (`customer_email`) | Resultado en rojo, `undefined`                                                                                          | Volver a arrastrar desde el INPUT actual                                             |
 | Usuario de prueba no añadido en Google Cloud                 | Google bloquea el inicio de sesión                                                                                      | _Público → Usuarios de prueba_                                                       |
 
-## 8. Pendiente
+## 8. Verificado de punta a punta
 
-- **Unificar en un solo flujo `Reformas · Avisos`** (decidido, en curso): Webhook `reformas-events` →
-  **Switch** por `body.event` → Telegram / Gmail / **Stop and Error** para eventos desconocidos. Laravel
-  mantiene dos destinos con su propio circuito, apuntando a la misma URL. Orden: primero publicar el
-  flujo, después cambiar `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL`.
-- **Exportar los flujos** a `n8n/workflows/` con `n8n export:workflow`. El JSON guarda nodos, expresiones
-  y una referencia a la credencial por nombre e id, **nunca** el token ni el OAuth.
+| Prueba                                                          | Resultado                                                                                                                                  |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Lead nuevo por Recepción (`Marta Unificada`, fachada en Bilbao) | Telegram al primer intento, con la incoherencia detectada: _"el tipo marcado era 'other' pero la descripción detalla trabajos de fachada"_ |
+| Aprobar un borrador                                             | Correo entregado (`SENT` en la respuesta de Gmail)                                                                                         |
+| Evento inventado                                                | HTTP 500, sin Telegram ni correo                                                                                                           |
+
+Para ver qué pasó en cada aviso: pestaña **Executions** del flujo. Muestra por qué rama fue y qué
+respondió cada nodo.
+
+## 9. Pendiente
+
 - Bot de Telegram propio del proyecto y revocar el token actual.
 - Nodo de IA en n8n para algo no crítico, con un modelo gratuito (ver `docs/FUTURE.md`).

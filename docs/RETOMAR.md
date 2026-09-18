@@ -58,12 +58,12 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
     - [x] Flujos `Reformas · Cliente` (Gmail) y `Reformas · Equipo` (Telegram), configurados por Rafael,
           **publicados** y probados de punta a punta
     - [x] Resiliencia observada: 8 avisos acumulados con 404 se entregaron solos al publicar
-- [ ] **Paso 7b · Cerrar n8n**
-    - [ ] **Unificar en `Reformas · Avisos`**: Webhook `reformas-events` → Switch por `body.event` →
-          Telegram / Gmail / Stop and Error. Rafael lo configura guiado; **se quedó en insertar el Switch**
-    - [ ] Después de publicarlo: apuntar `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` a `/webhook/reformas-events`
-          (compose, `.env`, `.env.example`) y despublicar los dos flujos viejos
-    - [ ] Exportar el flujo a `n8n/workflows/` con `n8n export:workflow` (sin credenciales)
+- [x] **Paso 7b · Flujo unificado** (`Reformas · Avisos`)
+    - [x] Webhook `reformas-events` → **Switch** por `body.event` → Telegram / Gmail / `Stop and Error`
+    - [x] `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` apuntan a `/webhook/reformas-events`; los flujos
+          viejos quedaron despublicados
+    - [x] Flujo exportado a `n8n/workflows/reformas-avisos.json` (sin secretos, con el `chat_id` sustituido)
+    - [x] Verificado de punta a punta: lead nuevo → Telegram; borrador aprobado → correo; evento inventado → 500
     - [ ] Borrador del correo en párrafos (instrucción a Gemini)
     - [ ] Bot de Telegram propio del proyecto y revocar el token actual (expuesto en la sesión con agy)
     - [ ] Quitar `GMAIL_API_KEY` del `.env` (sobra)

@@ -20,8 +20,10 @@ x-app-env: &app-env
     # Destinos del outbox dentro de la red del compose. Los de n8n son URLs de producción (/webhook/):
     # responden siempre que el flujo esté activo, sin pulsar "Listen for test event".
     DELIVERY_CRM_URL: http://fake-crm:8080/webhooks/leads
-    DELIVERY_TEAM_URL: http://n8n:5678/webhook/reformas-team
-    DELIVERY_CUSTOMER_URL: http://n8n:5678/webhook/reformas-customer
+    # Un solo flujo en n8n reparte por evento (Switch); en Laravel siguen siendo dos destinos,
+    # cada uno con su propia cola de reintentos y su circuito.
+    DELIVERY_TEAM_URL: http://n8n:5678/webhook/reformas-events
+    DELIVERY_CUSTOMER_URL: http://n8n:5678/webhook/reformas-events
     FAKE_CRM_URL: http://fake-crm:8080
 
 services:
