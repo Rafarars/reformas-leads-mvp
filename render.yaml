@@ -91,6 +91,9 @@ services:
             sync: false
           - key: DB_POSTGRESDB_SCHEMA
             value: n8n
+          # Supabase exige TLS: sin habilitarlo, la conexión se queda colgada hasta agotar el tiempo.
+          - key: DB_POSTGRESDB_SSL_ENABLED
+            value: 'true'
           - key: DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED
             value: 'false'
           # Si cambia, las credenciales guardadas dejan de poder leerse.
@@ -108,8 +111,6 @@ services:
           # tope de montón por debajo del límite del contenedor y fuera todo lo que no usamos.
           - key: NODE_OPTIONS
             value: '--max-old-space-size=350'
-          - key: N8N_RUNNERS_ENABLED
-            value: 'false'
           - key: N8N_TEMPLATES_ENABLED
             value: 'false'
           - key: N8N_VERSION_NOTIFICATIONS_ENABLED
