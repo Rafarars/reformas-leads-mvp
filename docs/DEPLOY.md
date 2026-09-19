@@ -67,6 +67,12 @@ algún otro.
 `start.sh` ejecuta `app:check-config` y las migraciones antes de servir tráfico: con la configuración a
 medias, el servicio no arranca.
 
+**Tropiezo del primer despliegue:** `frankenphp: Operation not permitted`. El binario trae la capability
+`cap_net_bind_service` (para escuchar en el 443) y el entorno aislado de Render no deja ejecutar
+binarios con capabilities sin ser root. La etapa `render` del Dockerfile —la última, que es la que
+construyen las plataformas que no dejan elegir target— copia el binario para quitársela. Allí no hace
+falta: el puerto es alto.
+
 ## 3. Render: n8n
 
 1. El mismo blueprint crea el servicio `reformas-n8n` con la imagen oficial.

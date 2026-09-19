@@ -64,3 +64,16 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=6 \
 # Falla en cerrado: con configuración inválida el contenedor no arranca,
 # en vez de aceptar tráfico y fallar en la primera petición.
 CMD ["sh", "-c", "php artisan app:check-config && exec frankenphp run --config /etc/frankenphp/Caddyfile --adapter caddyfile"]
+
+# ---------------------------------------------------------------- render
+# Última etapa a propósito: es la que construyen las plataformas que no permiten elegir target.
+# El binario de FrankenPHP trae la capability cap_net_bind_service (para escuchar en el 443). En
+# entornos aislados como Render, ejecutar un binario con capabilities sin ser root da
+# "Operation not permitted". Copiarlo la elimina, y allí no hace falta: el puerto es alto.
+FROM prod AS render
+USER root
+RUN cp /usr/local/bin/frankenphp /usr/local/bin/frankenphp.plain \
+    && mv /usr/local/bin/frankenphp.plain /usr/local/bin/frankenphp \
+    && chmod 755 /usr/local/bin/frankenphp
+USER app
+
