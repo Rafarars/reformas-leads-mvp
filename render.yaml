@@ -1,0 +1,110 @@
+# Despliegue gratuito en Render. Un solo servicio web sirve la app, la cola y el planificador
+# (docker/render/start.sh): el plan gratuito no incluye trabajadores en segundo plano.
+# La base y los archivos viven en Supabase, porque el disco de Render es efímero.
+services:
+    - type: web
+      name: reformas-leads
+      runtime: docker
+      plan: free
+      region: oregon
+      dockerfilePath: ./Dockerfile
+      dockerCommand: ./docker/render/start.sh
+      healthCheckPath: /health
+      envVars:
+          - key: APP_ENV
+            value: production
+          - key: APP_DEBUG
+            value: 'false'
+          - key: APP_KEY
+            sync: false
+          - key: APP_URL
+            sync: false
+          - key: DB_CONNECTION
+            value: pgsql
+          - key: DB_HOST
+            sync: false
+          - key: DB_PORT
+            value: '5432'
+          - key: DB_DATABASE
+            sync: false
+          - key: DB_USERNAME
+            sync: false
+          - key: DB_PASSWORD
+            sync: false
+          - key: DB_SSLMODE
+            value: require
+          - key: QUEUE_CONNECTION
+            value: database
+          - key: SESSION_DRIVER
+            value: database
+          - key: CACHE_STORE
+            value: database
+          # Los archivos van a Supabase Storage: en Render se perderían en cada reinicio.
+          - key: ATTACHMENTS_DISK
+            value: s3
+          - key: AWS_ACCESS_KEY_ID
+            sync: false
+          - key: AWS_SECRET_ACCESS_KEY
+            sync: false
+          - key: AWS_DEFAULT_REGION
+            sync: false
+          - key: AWS_BUCKET
+            sync: false
+          - key: AWS_ENDPOINT
+            sync: false
+          - key: AWS_USE_PATH_STYLE_ENDPOINT
+            value: 'true'
+          - key: GEMINI_API_KEY
+            sync: false
+          - key: N8N_BASE_URL
+            fromService:
+                name: reformas-n8n
+                type: web
+                property: hostport
+          - key: DELIVERY_CRM_URL
+            sync: false
+          - key: DELIVERY_TEAM_URL
+            sync: false
+          - key: DELIVERY_CUSTOMER_URL
+            sync: false
+
+    - type: web
+      name: reformas-n8n
+      runtime: image
+      plan: free
+      region: oregon
+      image:
+          url: docker.io/n8nio/n8n:2.38.7
+      envVars:
+          # Sin esto, n8n guardaría flujos y credenciales en un disco que Render borra al reiniciar.
+          - key: DB_TYPE
+            value: postgresdb
+          - key: DB_POSTGRESDB_HOST
+            sync: false
+          - key: DB_POSTGRESDB_PORT
+            value: '5432'
+          - key: DB_POSTGRESDB_DATABASE
+            sync: false
+          - key: DB_POSTGRESDB_USER
+            sync: false
+          - key: DB_POSTGRESDB_PASSWORD
+            sync: false
+          - key: DB_POSTGRESDB_SCHEMA
+            value: n8n
+          - key: DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED
+            value: 'false'
+          # Si cambia, las credenciales guardadas dejan de poder leerse.
+          - key: N8N_ENCRYPTION_KEY
+            sync: false
+          - key: N8N_HOST
+            sync: false
+          - key: N8N_PROTOCOL
+            value: https
+          - key: WEBHOOK_URL
+            sync: false
+          - key: N8N_PORT
+            value: '10000'
+          - key: GENERIC_TIMEZONE
+            value: Europe/Madrid
+          - key: N8N_DIAGNOSTICS_ENABLED
+            value: 'false'

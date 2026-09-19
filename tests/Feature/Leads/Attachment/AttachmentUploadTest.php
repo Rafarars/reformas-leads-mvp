@@ -124,3 +124,16 @@ it('sends guests to the login page instead of serving a file', function () {
     $this->get(route('attachments.show', ['attachment' => $stored->id]))->assertRedirect(route('login'));
     $this->post(route('leads.attachments.store', ['lead' => ATTACHED_LEAD_ID]), ['kind' => 'photo'])->assertRedirect(route('login'));
 });
+
+it('stores the files on the disk that is configured, without touching the domain', function () {
+    // En un servidor efímero (Render) el disco local se borra en cada reinicio: los archivos van a
+    // un almacén externo. Cambiar de disco es cambiar una variable, porque el dominio habla con un puerto.
+    Storage::fake('s3');
+    config(['services.attachments.disk' => 's3']);
+
+    postAttachment(ATTACHED_LEAD_ID, UploadedFile::fake()->image('cocina.jpg'))->assertCreated();
+
+    $stored = DB::table('lead_attachments')->where('lead_id', ATTACHED_LEAD_ID)->first();
+    Storage::disk('s3')->assertExists($stored->path);
+    expect(Storage::disk('local')->allFiles())->toBe([]);
+});

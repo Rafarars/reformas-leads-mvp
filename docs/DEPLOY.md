@@ -1,26 +1,115 @@
 # Despliegue
 
-Objetivo: el proyecto en internet **con coste cero**, sin que se duerma nada, para poder enseñar la
-demo de resiliencia desde un enlace.
+Objetivo: el proyecto en internet **con coste cero** y sin dar una tarjeta, para poder enseñar la demo
+desde un enlace.
 
-## Por qué un servidor propio y no una plataforma gestionada
+## Dos caminos, los dos a coste cero
 
-El esquema inicial (base en Supabase, app y n8n en Render) dejó de encajar:
+|                         | **Render + Supabase** (elegido)      | Servidor propio (VPS o VM gratuita)                     |
+| ----------------------- | ------------------------------------ | ------------------------------------------------------- |
+| Tarjeta                 | **No hace falta**                    | Sí, aunque sea solo para verificar                      |
+| Riesgo de cargo         | **Ninguno**                          | Bajo, pero existe                                       |
+| Caduca                  | No                                   | La VM gratuita de Google obliga a decidir a los 90 días |
+| Nada se duerme          | ⚠️ Solo dentro de la franja con ping | ✅ Siempre                                              |
+| Administrar el servidor | No                                   | Sí                                                      |
 
-| Pieza                   | Plan gratuito hoy                         | Consecuencia                                                   |
-| ----------------------- | ----------------------------------------- | -------------------------------------------------------------- |
-| Base en Supabase        | 500 MB, se **pausa a los 7 días** sin uso | Hay que mantenerla viva con un ping                            |
-| App en Render           | Se **duerme a los 15 min**                | El primer visitante espera ~1 minuto                           |
-| **Cola y planificador** | **Sin plan gratuito** (7 $/mes)           | Sin cola no hay entregas, ni IA, ni outbox: **se cae la demo** |
-| n8n en Render           | Se duerme                                 | El primer aviso falla y entra en reintentos                    |
+**Elegido: Render + Supabase.** Descartado Oracle porque su política comercial **no admite Venezuela**,
+y Google porque exige crear una cuenta de facturación con tarjeta.
 
-La cola es el corazón del proyecto, así que partirlo en servicios gestionados sale **más caro y
-peor** que una máquina donde corre el `docker-compose` entero.
+### Los tres obstáculos del plan gratuito, y cómo se resuelven
 
-**Elegido:** una VM **Oracle Cloud Always Free** (ARM, 2 vCPU y 12 GB), gratis de forma permanente.
-Alternativa sin tarjeta, con recortes, en la última sección.
+| Obstáculo                                                          | Solución                                                                                              |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| **No hay trabajadores en segundo plano** (7 $/mes)                 | La cola y el planificador corren **dentro del mismo contenedor** de la web (`docker/render/start.sh`) |
+| **El disco es efímero**: se pierde lo subido y lo guardado por n8n | Archivos en **Supabase Storage** (`ATTACHMENTS_DISK=s3`) y n8n con **PostgreSQL** como almacén        |
+| **El servicio se duerme a los 15 min**                             | Ping programado **en horario español**, que es cuando interesa que esté viva                          |
+
+```
+cron-job.org ──ping cada 10 min, L-V 9:00-18:00 (hora española)──► Render: app + cola + planificador
+                                                                          │
+                                                                          ▼
+                                                            Supabase: PostgreSQL + Storage
+                                                                          ▲
+                                                     Render: n8n ─────────┘
+```
+
+Las 750 horas gratuitas al mes dan para **~220 h por servicio** con esa franja: caben este proyecto y
+algún otro.
 
 ---
+
+## 1. Supabase
+
+1. Crear proyecto en `supabase.com` (gratis, sin tarjeta). Guardar la contraseña de la base.
+2. **Connect → Session pooler**: de ahí salen `host`, `port`, `database` y `user`.
+3. **Storage → New bucket**, privado, llamado `attachments`.
+4. **Storage → S3 connection**: apuntar el _endpoint_, la región y generar las claves de acceso.
+
+> Un proyecto gratuito **se pausa a los 7 días sin actividad**. El propio tráfico de la app lo evita;
+> si va a estar parado, basta un ping semanal.
+
+## 2. Render: la aplicación
+
+1. Crear cuenta en `render.com` con GitHub (sin tarjeta) y **New → Blueprint** apuntando al repositorio:
+   `render.yaml` ya define los dos servicios.
+2. Rellenar las variables marcadas como `sync: false`:
+
+| Variable                                      | De dónde sale                                                               |
+| --------------------------------------------- | --------------------------------------------------------------------------- |
+| `APP_KEY`                                     | `php artisan key:generate --show`                                           |
+| `APP_URL`                                     | La URL que da Render a la app                                               |
+| `DB_*`                                        | Supabase → Session pooler                                                   |
+| `AWS_*`                                       | Supabase → Storage → S3 connection                                          |
+| `GEMINI_API_KEY`                              | Google AI Studio                                                            |
+| `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` | `https://<n8n en Render>/webhook/reformas-events`                           |
+| `DELIVERY_CRM_URL`                            | Sin CRM desplegado, cualquier URL que falle sirve: demuestra los reintentos |
+
+`start.sh` ejecuta `app:check-config` y las migraciones antes de servir tráfico: con la configuración a
+medias, el servicio no arranca.
+
+## 3. Render: n8n
+
+1. El mismo blueprint crea el servicio `reformas-n8n` con la imagen oficial.
+2. Variables: las `DB_POSTGRESDB_*` de Supabase (esquema `n8n`), `N8N_ENCRYPTION_KEY`
+   (`openssl rand -hex 32`), y `N8N_HOST` y `WEBHOOK_URL` con la URL que le dé Render.
+3. Al abrirlo la primera vez, crear el usuario del editor.
+4. **Rehacer la credencial de Gmail**: la URI de redirección pasa a
+   `https://<n8n en Render>/rest/oauth2-credential/callback`; hay que añadirla en Google Cloud.
+5. Crear la credencial de Telegram con el token del bot.
+6. Importar el flujo (`n8n/workflows/reformas-avisos.json`), poner el `chat_id` real y **publicarlo**.
+
+## 4. Mantenerlo despierto
+
+En `cron-job.org` (gratis), un trabajo que pida `https://<app>/health`:
+
+- cada **10 minutos**, de **lunes a viernes**, de **9:00 a 18:00 hora española**;
+- fuera de esa franja se duerme, y la primera visita tarda ~1 minuto en despertarlo.
+
+Un lead que entre de madrugada **se recibe igual** (la petición despierta el servicio); su clasificación
+y sus avisos salen en cuanto la cola vuelve a correr. Es el comportamiento que el outbox garantiza.
+
+## 5. Comprobar que quedó bien
+
+1. `https://<app>/health` responde `ok`.
+2. Registrar un lead y verlo clasificado: la cola funciona.
+3. Aprobar un borrador: llega el correo. La primera vez puede tardar si n8n estaba dormido.
+4. Subir una foto y volver a abrirla tras un reinicio del servicio: sigue ahí, porque vive en Supabase.
+
+## 6. Antes de enseñarlo a nadie
+
+| Riesgo                    | Qué hacer                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------- |
+| El editor de n8n expuesto | Contraseña fuerte en el usuario del editor                                      |
+| Datos reales              | **Solo datos ficticios**: el tier gratuito de la IA puede usarlos para entrenar |
+| La API pública            | Revisar `API_REQUESTS_PER_MINUTE`                                               |
+| Pérdida de datos          | Supabase hace copias; exportar el flujo de n8n al repositorio tras cada cambio  |
+
+---
+
+# Alternativa: servidor propio
+
+Si algún día hay presupuesto o una VM gratuita disponible, `compose.prod.yml` levanta **todo** en una
+máquina (app, cola, planificador, base, n8n y el CRM simulado) sin nada que se duerma.
 
 ## 1. La máquina
 

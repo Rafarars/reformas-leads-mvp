@@ -54,7 +54,8 @@ COPY --chown=app:app . .
 COPY --chown=app:app --from=vendor /app/vendor ./vendor
 COPY --chown=app:app --from=assets /app/public/build ./public/build
 RUN composer dump-autoload --no-dev --optimize --classmap-authoritative \
-    && rm /usr/bin/composer
+    && rm /usr/bin/composer \
+    && chmod +x docker/render/start.sh
 USER app
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=6 \
