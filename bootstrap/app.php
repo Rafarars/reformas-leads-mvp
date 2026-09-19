@@ -30,6 +30,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // Detrás de un proxy que termina el TLS (Render), la petición llega por http: sin esto
+        // Laravel genera las URLs de los assets con http y el navegador las bloquea por contenido
+        // mixto, dejando la página en blanco.
+        $middleware->trustProxies(at: '*');
+
         $middleware->alias([
             'api.client' => AuthenticateApiClient::class,
             'idempotent' => EnsureIdempotentRequest::class,

@@ -67,11 +67,21 @@ algún otro.
 `start.sh` ejecuta `app:check-config` y las migraciones antes de servir tráfico: con la configuración a
 medias, el servicio no arranca.
 
-**Tropiezo del primer despliegue:** `frankenphp: Operation not permitted`. El binario trae la capability
+**Tropiezos del primer despliegue:** `frankenphp: Operation not permitted`. El binario trae la capability
 `cap_net_bind_service` (para escuchar en el 443) y el entorno aislado de Render no deja ejecutar
 binarios con capabilities sin ser root. La etapa `render` del Dockerfile —la última, que es la que
 construyen las plataformas que no dejan elegir target— copia el binario para quitársela. Allí no hace
 falta: el puerto es alto.
+
+2. **n8n se quedaba sin memoria** (`JavaScript heap out of memory`) en los 512 MB del plan gratuito. Dos
+   causas: faltaba `DB_POSTGRESDB_SSL_ENABLED=true` —Supabase exige TLS y la conexión se colgaba hasta
+   agotar el tiempo— y n8n arrancaba piezas que no usamos. Se añadieron tope de montón
+   (`NODE_OPTIONS=--max-old-space-size=350`), sin plantillas ni avisos de versión, menos conexiones al
+   pooler y poda del historial.
+
+3. **Página en blanco tras desplegar:** Render termina el TLS y reenvía por `http`, así que Laravel
+   generaba las URLs de los assets con `http` y el navegador las bloqueaba por contenido mixto. Arreglo:
+   `trustProxies(at: '*')` en `bootstrap/app.php`.
 
 ## 3. Render: n8n
 

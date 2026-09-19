@@ -11,6 +11,8 @@ services:
       dockerCommand: ./docker/render/start.sh
       healthCheckPath: /health
       envVars:
+          - key: APP_NAME
+            value: Reformas Leads
           - key: APP_ENV
             value: production
           - key: APP_DEBUG
