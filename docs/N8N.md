@@ -96,9 +96,10 @@ Se puede crear desde **Credentials** o **directamente desde el nodo** de Gmail
    `https://api.telegram.org/bot<TOKEN>/getUpdates` → `result[].message.chat.id`. Va a `.env` como
    `TELEGRAM_CHAT_ID` y al campo _Chat ID_ del nodo (modo **Fixed**: siempre es el mismo chat).
 
-> **Pendiente:** el bot actual es de pruebas y está compartido con otra integración (llegan mensajes
-> ajenos al mismo chat). Su token quedó expuesto en los registros de una sesión con otra herramienta
-> (ver `docs/BITACORA.md`). Hay que crear un bot propio del proyecto y revocar el token.
+> El primer bot usado era compartido con otra integración (llegaban mensajes ajenos al chat) y su token
+> quedó expuesto en los registros de una sesión con otra herramienta (ver `docs/BITACORA.md`). Se creó
+> un **bot propio del proyecto**; el `chat_id` no cambia, porque identifica a la persona, no al bot.
+> **Pendiente:** revocar el token del bot antiguo, que rompe la otra integración hasta actualizarla allí.
 
 ---
 
@@ -250,5 +251,5 @@ respondió cada nodo.
 
 ## 9. Pendiente
 
-- Bot de Telegram propio del proyecto y revocar el token actual.
+- Revocar el token del bot antiguo (`/mybots` → bot → **API Token** → _Revoke_).
 - Nodo de IA en n8n para algo no crítico, con un modelo gratuito (ver `docs/FUTURE.md`).

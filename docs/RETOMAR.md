@@ -65,7 +65,8 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
     - [x] Flujo exportado a `n8n/workflows/reformas-avisos.json` (sin secretos, con el `chat_id` sustituido)
     - [x] Verificado de punta a punta: lead nuevo → Telegram; borrador aprobado → correo; evento inventado → 500
     - [ ] Borrador del correo en párrafos (instrucción a Gemini)
-    - [ ] Bot de Telegram propio del proyecto y revocar el token actual (expuesto en la sesión con agy)
+    - [x] Bot de Telegram propio del proyecto (`@leads_reformas_mvp_bot`); el `chat_id` no cambia
+    - [ ] Revocar el token del bot antiguo (rompe la otra integración hasta actualizarla allí)
     - [ ] Quitar `GMAIL_API_KEY` del `.env` (sobra)
 - [x] **Paso 8 · Fotos y planos** (módulo `src/Leads/Attachment`)
     - [x] Endpoint propio: `POST /api/v1/leads/{lead}/attachments` y subida desde el panel de Clasificación
