@@ -58,6 +58,23 @@ breaker.** Si Gmail falla, Telegram y el CRM siguen entregando.
   limitador y la idempotencia lanzan si no saben qué cliente llama.
 - **Cada guarda se ha visto saltar**, no solo el camino feliz.
 
+## Cómo se usa
+
+```
+Recepción ──► la IA clasifica ──► Telegram al equipo ──► una persona revisa en Clasificación
+                                                              │ confirma, adjunta fotos, edita
+                                                              ▼
+                                                        aprueba ──► Gmail al cliente
+```
+
+| Pantalla          | Para qué                                                                               |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| **Recepción**     | Registrar un lead. Si ya existe por teléfono o email, se anota como contacto repetido  |
+| **Clasificación** | Revisar lo que propuso la IA, **subir fotos y planos** y aprobar el mensaje al cliente |
+| **Resiliencia**   | La demo: tumbar el CRM, inyectar leads y ver la cola crecer y drenarse sola            |
+
+Guía completa de uso, con tiempos y dudas frecuentes: [`docs/USO.md`](docs/USO.md).
+
 ## La demo, en vivo
 
 En el panel de **Resiliencia** se tumba el CRM simulado, se inyectan leads, la cola crece con sus
@@ -143,6 +160,7 @@ servicio detenido, o con assets compilados más viejos que el código de React.
 | Archivo                                        | Contenido                                                                |
 | ---------------------------------------------- | ------------------------------------------------------------------------ |
 | [`docs/spec.md`](docs/spec.md)                 | Problema, alcance, arquitectura, resiliencia, IA y orden de construcción |
+| [`docs/USO.md`](docs/USO.md)                   | Cómo se usa cada pantalla, qué canal avisa a quién y cuánto tarda        |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Convención hexagonal: estructura, nombres y reglas                       |
 | [`docs/N8N.md`](docs/N8N.md)                   | Configuración reproducible de Google Cloud, Telegram y los flujos        |
 | [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)       | Bitácora del arranque: cada fase, lo que se encontró y cómo se verificó  |

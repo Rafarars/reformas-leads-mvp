@@ -115,6 +115,7 @@ encadenan dentro del propio script.
 | ---------------------- | --------------------------------------------------------------------- |
 | `docs/spec.md`         | Problema, alcance, arquitectura, resiliencia y orden de construcción  |
 | `docs/ARCHITECTURE.md` | Convención hexagonal: estructura, nombres y reglas                    |
+| `docs/USO.md`          | Cómo se usa el panel: canales, fotos, tiempos y dudas frecuentes      |
 | `docs/BOOTSTRAP.md`    | Bitácora del arranque y de cada tropiezo                              |
 | `docs/BITACORA.md`     | Bitácora de los pasos 6 y 7: IA, avisos, sesión con agy y sus errores |
 | `docs/N8N.md`          | Configuración reproducible de Google Cloud, Telegram y los flujos     |
