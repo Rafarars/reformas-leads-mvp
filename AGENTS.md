@@ -114,6 +114,7 @@ encadenan dentro del propio script.
 | `docs/BOOTSTRAP.md`    | Bitácora del arranque y de cada tropiezo                              |
 | `docs/BITACORA.md`     | Bitácora de los pasos 6 y 7: IA, avisos, sesión con agy y sus errores |
 | `docs/N8N.md`          | Configuración reproducible de Google Cloud, Telegram y los flujos     |
+| `docs/DEPLOY.md`       | Plan de despliegue con coste cero y qué proteger antes de publicar    |
 | `docs/FUTURE.md`       | Mejoras diferidas, con su porqué                                      |
 | `docs/RETOMAR.md`      | Estado actual y checklist de lo que falta                             |
 | `README.md`            | Portada del portafolio                                                |

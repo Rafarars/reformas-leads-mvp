@@ -1,0 +1,136 @@
+# Despliegue en un servidor propio: la imagen prod, sin volúmenes de código y con HTTPS.
+# Levantar con:  docker compose -f compose.prod.yml up -d --build
+# Las variables vienen de .env.prod (ver docs/DEPLOY.md); ninguna tiene valor por defecto inseguro.
+name: reformas-leads
+
+x-app-build: &app-build
+    context: .
+    target: prod
+
+x-app-env: &app-env
+    APP_ENV: production
+    APP_DEBUG: 'false'
+    APP_KEY: ${APP_KEY:?falta APP_KEY}
+    APP_URL: ${APP_URL:?falta APP_URL}
+    DB_CONNECTION: pgsql
+    DB_HOST: db
+    DB_PORT: 5432
+    DB_DATABASE: ${DB_DATABASE:-reformas}
+    DB_USERNAME: ${DB_USERNAME:-reformas}
+    DB_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+    QUEUE_CONNECTION: database
+    SESSION_DRIVER: database
+    CACHE_STORE: database
+    GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    N8N_BASE_URL: http://n8n:5678
+    # Los avisos salen hacia n8n por la red interna, no por internet.
+    DELIVERY_CRM_URL: ${DELIVERY_CRM_URL:?falta DELIVERY_CRM_URL}
+    DELIVERY_TEAM_URL: http://n8n:5678/webhook/reformas-events
+    DELIVERY_CUSTOMER_URL: http://n8n:5678/webhook/reformas-events
+    FAKE_CRM_URL: http://fake-crm:8080
+
+services:
+    app:
+        build: *app-build
+        image: reformas-leads-app:prod
+        container_name: reformas-app
+        restart: unless-stopped
+        environment:
+            <<: *app-env
+            # FrankenPHP saca y renueva el certificado con Let's Encrypt a partir del dominio.
+            SERVER_NAME: ${APP_DOMAIN:?falta APP_DOMAIN}
+        ports:
+            - '80:8010'
+            - '443:443'
+        depends_on:
+            db:
+                condition: service_healthy
+
+    queue:
+        build: *app-build
+        image: reformas-leads-app:prod
+        container_name: reformas-queue
+        restart: unless-stopped
+        # Entrega los avisos del outbox y clasifica con la IA.
+        command:
+            [
+                'php',
+                'artisan',
+                'queue:work',
+                '--tries=1',
+                '--timeout=90',
+                '--sleep=1',
+            ]
+        environment: *app-env
+        depends_on:
+            db:
+                condition: service_healthy
+
+    scheduler:
+        build: *app-build
+        image: reformas-leads-app:prod
+        container_name: reformas-scheduler
+        restart: unless-stopped
+        # Entre otras, el barrido del outbox cada minuto: recupera lo que la cola perdiera.
+        command: ['php', 'artisan', 'schedule:work']
+        environment: *app-env
+        depends_on:
+            db:
+                condition: service_healthy
+
+    db:
+        image: postgres:17-alpine
+        container_name: reformas-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: ${DB_USERNAME:-reformas}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:?falta DB_PASSWORD}
+            POSTGRES_DB: ${DB_DATABASE:-reformas}
+        volumes:
+            - pgdata:/var/lib/postgresql/data
+        # Sin puertos publicados: solo se llega desde la red del compose.
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'pg_isready -U ${DB_USERNAME:-reformas} -d ${DB_DATABASE:-reformas}',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+
+    n8n:
+        image: n8nio/n8n:2.38.7
+        container_name: reformas-n8n
+        restart: unless-stopped
+        environment:
+            N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?falta N8N_ENCRYPTION_KEY}
+            N8N_PORT: 5678
+            N8N_HOST: ${N8N_DOMAIN:?falta N8N_DOMAIN}
+            N8N_PROTOCOL: https
+            WEBHOOK_URL: https://${N8N_DOMAIN}/
+            GENERIC_TIMEZONE: ${N8N_TIMEZONE:-Europe/Madrid}
+            TZ: ${N8N_TIMEZONE:-Europe/Madrid}
+            N8N_DIAGNOSTICS_ENABLED: 'false'
+            # El editor queda detrás de usuario y contraseña además del propio login de n8n.
+            N8N_SECURE_COOKIE: 'true'
+        volumes:
+            - n8n_data:/home/node/.n8n
+        # Solo accesible desde la red interna; se publica con el proxy del servidor si hace falta.
+        expose:
+            - '5678'
+
+    # Solo para la demo de resiliencia. Se puede no desplegar: ver docs/DEPLOY.md.
+    fake-crm:
+        image: node:22-alpine
+        container_name: reformas-fake-crm
+        restart: unless-stopped
+        command: ['node', '/srv/server.mjs']
+        volumes:
+            - ./docker/fake-crm:/srv:ro
+        expose:
+            - '8080'
+
+volumes:
+    pgdata:
+    n8n_data:

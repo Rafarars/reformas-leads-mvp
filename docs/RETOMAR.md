@@ -73,6 +73,12 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
     - [x] Si la transacción falla, **el archivo se borra**: el disco no tiene rollback
     - [x] Disco privado; descarga por una ruta con sesión, no por URL pública
     - [x] Pruebas: dominio, caso de uso (incluida la limpieza), contrato del repositorio, API, panel y E2E
+- [ ] **Despliegue** (plan completo en `docs/DEPLOY.md`, `compose.prod.yml` listo)
+    - [ ] Crear la VM gratuita en Oracle Cloud (tarjeta solo para verificar; si la rechaza, alternativa
+          sin tarjeta al final de `DEPLOY.md`)
+    - [ ] Dominio, HTTPS y secretos en el servidor
+    - [ ] n8n en producción: rehacer la credencial de Gmail con la URI nueva e importar el flujo
+    - [ ] Proteger `/control` y el editor de n8n; copias de seguridad
 - [ ] **Cierre**
     - [ ] Actualizar README con la demo y, si procede, un vídeo corto
     - [ ] Nodo de IA en n8n para algo no crítico con un modelo gratuito (Groq `qwen/qwen3.8-27b`; ver `docs/FUTURE.md`)
@@ -85,7 +91,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 - [ ] Limpiar `idempotency_keys` con más de 24 h
 - [ ] `make verify-clean` contra una base vacía
 - [ ] Autenticar `/control` del CRM simulado si alguna vez se despliega
-- [ ] Despliegue (Supabase + Render) y WhatsApp como canal al cliente
+- [ ] WhatsApp como canal al cliente
 
 ## Decisiones cerradas — no volver a discutirlas
 

@@ -24,15 +24,16 @@ oficiales: violan los términos y pueden bloquear el número.
 
 ## Despliegue
 
-**Qué:** base en Supabase, app y n8n en Render con la etapa `prod` del Dockerfile.
+**Plan y pasos:** [`docs/DEPLOY.md`](DEPLOY.md), con `compose.prod.yml` ya preparado.
 
-**Por qué no ahora:** en los planes gratuitos los servicios se duermen; la cola se detiene
-y el primer webhook tarda casi un minuto en despertar. Para el portafolio, un vídeo de la
-demo de resiliencia muestra más que un enlace que puede estar dormido.
+**Por qué cambió el esquema:** la idea era base en Supabase y app y n8n en Render. Hoy Render **no
+tiene plan gratuito para trabajadores en segundo plano** (7 $/mes), y sin cola no hay entregas, ni
+clasificación, ni outbox: se cae justo lo que el proyecto demuestra. Además la app se duerme a los 15
+minutos y la base de Supabase se pausa a los 7 días sin uso.
 
-**Qué haría falta:** un `worker` separado para la cola, `N8N_BASE_URL` y `DB_HOST` reales
-(la guarda de configuración ya rechaza `localhost`), y verificar las condiciones vigentes de
-cada plan.
+**Elegido:** una VM gratuita de Oracle Cloud Always Free (ARM, 2 vCPU y 12 GB) con el
+`docker-compose` entero. Si la verificación de la tarjeta falla, queda la alternativa sin tarjeta
+(Render + Supabase con la cola dentro del servicio web), documentada al final de `DEPLOY.md`.
 
 ## Miniaturas y limpieza de adjuntos
 
@@ -171,3 +172,23 @@ outbox reintenta y, si no se recupera, el aviso queda apartado y visible en el p
 
 **Por qué no ahora:** los Telegrams de prueba no molestan y un lead de Recepción **debe** avisar. Filtrar
 por `@example.com` se descartó: sería una regla de pruebas en el código de producción.
+
+## Vídeo de la demo
+
+**Qué:** 2 o 3 minutos de captura de pantalla con voz, enlazado desde el README y compartible en
+LinkedIn o en una respuesta a una empresa.
+
+**Por qué:** nadie clona un repositorio para evaluarte. El vídeo enseña en tres minutos que un destino
+cae, la cola crece sin perder nada y se drena sola al volver.
+
+**Guion previsto:**
+
+| Tramo     | Qué se ve                                                                 |
+| --------- | ------------------------------------------------------------------------- |
+| 0:00-0:20 | La pregunta de la entrevista y qué se va a demostrar                      |
+| 0:20-0:50 | Registrar un lead y verlo clasificado, con lo que falta y el borrador     |
+| 0:50-1:40 | Tumbar el CRM desde el panel, inyectar leads y ver la cola con reintentos |
+| 1:40-2:20 | Restablecerlo: la cola se drena sola, sin duplicados                      |
+| 2:20-2:50 | Aprobar el borrador: llega el correo y el aviso de Telegram               |
+
+**Qué haría falta:** OBS Studio (pantalla y micrófono) y subirlo a YouTube como oculto.
