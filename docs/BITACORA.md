@@ -170,6 +170,16 @@ los flujos anteriores despublicados. Detalle y verificación en `docs/N8N.md`.
 de Telegram, que no filtraba por evento y mandó dos avisos vacíos al chat. Es el argumento a favor del
 Switch y del `Stop and Error`: **un flujo debe rechazar lo que no entiende**.
 
+### Tropiezo: `make secrets` no ve lo que aún no está commiteado
+
+El CI falló en _Secret scan_ con `render.yaml`, después de que la comprobación local pasara. Dos causas:
+
+1. **gitleaks escanea el historial**, así que en local se ejecutó sobre commits anteriores y no vio el
+   archivo nuevo. La comprobación va **después** del commit y antes del push.
+2. **Falso positivo:** la regla `generic-api-key` interpreta `- key: N8N_DIAGNOSTICS_ENABLED` como un
+   secreto tras `key:`. Se añadió `.gitleaks.toml` que conserva todas las reglas por defecto y permite
+   solo **nombres en mayúsculas** tras `key:`; cualquier valor real se sigue detectando.
+
 ### Decisiones al cierre
 
 - **Los Telegrams de las E2E en local se aceptan** (opción B de tres): filtrar por `@example.com` metería

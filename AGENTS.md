@@ -38,6 +38,10 @@ make verify         # cambios de código o configuración
 make verify-clean   # además, al tocar Dockerfile, compose, dependencias o compilación
 ```
 
+`make secrets` escanea **el historial de git**, no el directorio de trabajo: correrlo antes de
+commitear no ve lo que aún no está commiteado. Para un cambio nuevo, volver a pasarlo **después** del
+commit y antes del push.
+
 Solo se salta en cambios de documentación pura. **Un arreglo verificado a medias no está
 verificado**: si algo corre en local, en Docker y en el CI, se comprueba en los tres.
 

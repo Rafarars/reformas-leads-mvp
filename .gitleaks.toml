@@ -1,0 +1,7 @@
+# Se mantienen todas las reglas por defecto y solo se añade una excepción muy acotada.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Los nombres de variables de render.yaml van tras 'key:', y la regla generic-api-key los toma por secretos. Solo se permiten NOMBRES en mayúsculas: cualquier valor real sigue detectándose."
+regexes = ['''key: [A-Z][A-Z0-9_]+$''']
