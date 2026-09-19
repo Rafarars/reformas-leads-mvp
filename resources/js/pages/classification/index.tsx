@@ -1,5 +1,6 @@
 import { Head, router, usePage, usePoll } from '@inertiajs/react';
-import { useState } from 'react';
+import { FileText, Image as ImageIcon, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 import AttachmentGetController from '@/actions/App/Http/Controllers/Attachments/AttachmentGetController';
 import AttachmentPostController from '@/actions/App/Http/Controllers/Attachments/AttachmentPostController';
 import ClassificationDraftApprovePostController from '@/actions/App/Http/Controllers/Classification/ClassificationDraftApprovePostController';
@@ -182,46 +183,45 @@ function kilobytes(bytes: number): string {
 
 function Attachments({ item }: { item: Classification }) {
     const [kind, setKind] = useState<'photo' | 'plan'>('photo');
+    const [uploading, setUploading] = useState(false);
+    const [dragging, setDragging] = useState(false);
+    const input = useRef<HTMLInputElement>(null);
     const test = `classification-attachments-${item.lead_id}`;
+
+    const upload = (file: File | undefined) => {
+        if (file === undefined) {
+            return;
+        }
+
+        router.post(
+            AttachmentPostController.url({ lead: item.lead_id }),
+            { kind, file },
+            {
+                preserveScroll: true,
+                forceFormData: true,
+                onStart: () => setUploading(true),
+                onFinish: () => setUploading(false),
+            },
+        );
+    };
 
     return (
         <div className="space-y-2" data-test={test}>
-            <p className="text-muted-foreground text-xs font-medium">
-                Fotos y planos ({item.attachments.length})
-            </p>
-
-            {item.attachments.length > 0 && (
-                <ul className="space-y-1 text-xs">
-                    {item.attachments.map((attachment) => (
-                        <li key={attachment.id}>
-                            <a
-                                href={AttachmentGetController.url(
-                                    attachment.id,
-                                )}
-                                target="_blank"
-                                rel="noreferrer"
-                                data-test={`${test}-link`}
-                                className="underline underline-offset-4"
-                            >
-                                {attachment.kind === 'plan' ? '📐' : '📷'}{' '}
-                                {attachment.file_name}
-                            </a>{' '}
-                            <span className="text-muted-foreground">
-                                {kilobytes(attachment.size_bytes)}
-                            </span>
-                        </li>
-                    ))}
-                </ul>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center justify-between gap-2">
+                <p className="text-muted-foreground text-xs font-medium">
+                    Fotos y planos ({item.attachments.length})
+                </p>
+                {/* Foto o plano se elige antes de subir: cambia cómo se lee después en la lista. */}
                 <Select
                     value={kind}
                     onValueChange={(value) =>
                         setKind(value as 'photo' | 'plan')
                     }
                 >
-                    <SelectTrigger className="w-28" data-test={`${test}-kind`}>
+                    <SelectTrigger
+                        className="h-7 w-24 text-xs"
+                        data-test={`${test}-kind`}
+                    >
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -239,30 +239,82 @@ function Attachments({ item }: { item: Classification }) {
                         </SelectItem>
                     </SelectContent>
                 </Select>
-                <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    data-test={`${test}-file-input`}
-                    className="text-xs"
-                    onChange={(event) => {
-                        const file = event.target.files?.[0];
-
-                        if (file === undefined) {
-                            return;
-                        }
-
-                        // Se sube al elegir el archivo: un botón más solo añadiría un paso.
-                        router.post(
-                            AttachmentPostController.url({
-                                lead: item.lead_id,
-                            }),
-                            { kind, file },
-                            { preserveScroll: true, forceFormData: true },
-                        );
-                        event.target.value = '';
-                    }}
-                />
             </div>
+
+            {item.attachments.length > 0 && (
+                <ul className="flex flex-wrap gap-2">
+                    {item.attachments.map((attachment) => (
+                        <li key={attachment.id}>
+                            <a
+                                href={AttachmentGetController.url(
+                                    attachment.id,
+                                )}
+                                target="_blank"
+                                rel="noreferrer"
+                                data-test={`${test}-link`}
+                                className="border-sidebar-border/70 dark:border-sidebar-border hover:bg-accent flex items-center gap-2 rounded-md border px-2 py-1 text-xs"
+                            >
+                                {attachment.kind === 'plan' ? (
+                                    <FileText className="size-3.5" />
+                                ) : (
+                                    <ImageIcon className="size-3.5" />
+                                )}
+                                <span className="max-w-40 truncate">
+                                    {attachment.file_name}
+                                </span>
+                                <span className="text-muted-foreground">
+                                    {kilobytes(attachment.size_bytes)}
+                                </span>
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            {/* El input nativo es invisible y poco claro: se oculta y se usa esta zona, que además
+                acepta arrastrar el archivo. */}
+            <button
+                type="button"
+                onClick={() => input.current?.click()}
+                onDragOver={(event) => {
+                    event.preventDefault();
+                    setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(event) => {
+                    event.preventDefault();
+                    setDragging(false);
+                    upload(event.dataTransfer.files[0]);
+                }}
+                disabled={uploading}
+                data-test={`${test}-dropzone`}
+                className={`flex w-full items-center justify-center gap-2 rounded-lg border border-dashed px-3 py-3 text-xs transition ${
+                    dragging
+                        ? 'border-primary bg-accent'
+                        : 'border-sidebar-border/70 dark:border-sidebar-border hover:bg-accent'
+                } ${uploading ? 'opacity-60' : ''}`}
+            >
+                <Upload className="size-4" />
+                {uploading
+                    ? 'Subiendo…'
+                    : `Arrastra aquí ${kind === 'plan' ? 'un plano' : 'una foto'} o pulsa para elegir`}
+            </button>
+
+            <input
+                ref={input}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                data-test={`${test}-file-input`}
+                className="hidden"
+                onChange={(event) => {
+                    upload(event.target.files?.[0]);
+                    event.target.value = '';
+                }}
+            />
+
+            <p className="text-muted-foreground text-[11px]">
+                JPG, PNG, WEBP o PDF · hasta 10 MB
+            </p>
         </div>
     );
 }
