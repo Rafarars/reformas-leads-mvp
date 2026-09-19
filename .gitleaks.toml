@@ -3,5 +3,6 @@
 useDefault = true
 
 [allowlist]
-description = "Los nombres de variables de render.yaml van tras 'key:', y la regla generic-api-key los toma por secretos. Solo se permiten NOMBRES en mayúsculas: cualquier valor real sigue detectándose."
-regexes = ['''key: [A-Z][A-Z0-9_]+$''']
+description = "En render.yaml (y al citarlo en la documentación) los NOMBRES de variables van tras 'key:', y la regla generic-api-key los toma por secretos. Solo se permiten nombres en mayúsculas: cualquier valor real se sigue detectando."
+regexTarget = "match"
+regexes = ['''key:\s*[A-Z][A-Z0-9_]{2,}''']
