@@ -30,6 +30,19 @@ test('a received lead reaches the classification inbox and a person can decide',
         timeout: 90_000,
     });
 
+    // Una foto del baño: es lo que falta para presupuestar, y se revisa junto a la clasificación.
+    await classification.attach(lead.description, 'photo', {
+        name: 'bano.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(
+            '89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000a49444154789c6360000002000100055c0b790000000049454e44ae426082',
+            'hex',
+        ),
+    });
+    await expect(classification.attachments(lead.description)).toHaveText(
+        /bano\.png/,
+    );
+
     await classification.review(lead.description, 'installations', 'medium');
 
     await expect(classification.itemFor(lead.description)).toHaveAttribute(

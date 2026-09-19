@@ -1,5 +1,7 @@
 import { Head, router, usePage, usePoll } from '@inertiajs/react';
 import { useState } from 'react';
+import AttachmentGetController from '@/actions/App/Http/Controllers/Attachments/AttachmentGetController';
+import AttachmentPostController from '@/actions/App/Http/Controllers/Attachments/AttachmentPostController';
 import ClassificationDraftApprovePostController from '@/actions/App/Http/Controllers/Classification/ClassificationDraftApprovePostController';
 import ClassificationReviewPostController from '@/actions/App/Http/Controllers/Classification/ClassificationReviewPostController';
 import Heading from '@/components/heading';
@@ -31,6 +33,7 @@ type Classification = {
     draft_status: 'pending' | 'approved' | null;
     draft_approved_by: string | null;
     model: string | null;
+    attachments: Attachment[];
     review_reason: string | null;
     reviewed_by: string | null;
     updated_at: string;
@@ -41,6 +44,14 @@ type Classification = {
         budget: number | null;
         description: string | null;
     } | null;
+};
+
+type Attachment = {
+    id: string;
+    kind: 'photo' | 'plan';
+    file_name: string;
+    content_type: string;
+    size_bytes: number;
 };
 
 type PageProps = { errors: Record<string, string> };
@@ -165,6 +176,97 @@ function Findings({
     );
 }
 
+function kilobytes(bytes: number): string {
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+function Attachments({ item }: { item: Classification }) {
+    const [kind, setKind] = useState<'photo' | 'plan'>('photo');
+    const test = `classification-attachments-${item.lead_id}`;
+
+    return (
+        <div className="space-y-2" data-test={test}>
+            <p className="text-muted-foreground text-xs font-medium">
+                Fotos y planos ({item.attachments.length})
+            </p>
+
+            {item.attachments.length > 0 && (
+                <ul className="space-y-1 text-xs">
+                    {item.attachments.map((attachment) => (
+                        <li key={attachment.id}>
+                            <a
+                                href={AttachmentGetController.url(
+                                    attachment.id,
+                                )}
+                                target="_blank"
+                                rel="noreferrer"
+                                data-test={`${test}-link`}
+                                className="underline underline-offset-4"
+                            >
+                                {attachment.kind === 'plan' ? '📐' : '📷'}{' '}
+                                {attachment.file_name}
+                            </a>{' '}
+                            <span className="text-muted-foreground">
+                                {kilobytes(attachment.size_bytes)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+                <Select
+                    value={kind}
+                    onValueChange={(value) =>
+                        setKind(value as 'photo' | 'plan')
+                    }
+                >
+                    <SelectTrigger className="w-28" data-test={`${test}-kind`}>
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            value="photo"
+                            data-test={`${test}-kind-photo`}
+                        >
+                            Foto
+                        </SelectItem>
+                        <SelectItem
+                            value="plan"
+                            data-test={`${test}-kind-plan`}
+                        >
+                            Plano
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    data-test={`${test}-file-input`}
+                    className="text-xs"
+                    onChange={(event) => {
+                        const file = event.target.files?.[0];
+
+                        if (file === undefined) {
+                            return;
+                        }
+
+                        // Se sube al elegir el archivo: un botón más solo añadiría un paso.
+                        router.post(
+                            AttachmentPostController.url({
+                                lead: item.lead_id,
+                            }),
+                            { kind, file },
+                            { preserveScroll: true, forceFormData: true },
+                        );
+                        event.target.value = '';
+                    }}
+                />
+            </div>
+        </div>
+    );
+}
+
 function Draft({ item }: { item: Classification }) {
     const [message, setMessage] = useState(
         (item.draft_message ?? '').replaceAll(
@@ -264,7 +366,8 @@ export default function ClassificationIndex({
                         errors.category ??
                         errors.urgency ??
                         errors.review ??
-                        errors.message
+                        errors.message ??
+                        errors.file
                     }
                 />
 
@@ -365,6 +468,7 @@ export default function ClassificationIndex({
                                     categories={categories}
                                     urgencies={urgencies}
                                 />
+                                <Attachments item={item} />
                                 <Draft item={item} />
                             </div>
                         </div>

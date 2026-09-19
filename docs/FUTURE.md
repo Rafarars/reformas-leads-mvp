@@ -34,13 +34,17 @@ demo de resiliencia muestra más que un enlace que puede estar dormido.
 (la guarda de configuración ya rechaza `localhost`), y verificar las condiciones vigentes de
 cada plan.
 
-## Fotos y planos
+## Miniaturas y limpieza de adjuntos
 
-**Qué:** carga en un endpoint propio, separada de la creación del lead.
+**Qué:** generar miniaturas de las fotos para el panel, permitir borrar un adjunto y pasar un antivirus
+a lo que se sube.
 
-**Diseño ya decidido:** el archivo se registra en la misma transacción que su referencia, y
-**el archivo físico se borra explícitamente si la transacción falla**, porque el sistema de
-archivos no participa en ella. Límite de tamaño solo en esa ruta.
+**Por qué no ahora:** el panel muestra los archivos por nombre y se abren en una pestaña; para la demo
+llega. El borrado y el antivirus importan cuando esto reciba archivos de desconocidos en producción.
+
+**Qué haría falta:** un caso de uso `AttachmentRemover` que borre fila y archivo en el mismo orden seguro
+(primero la fila, después el archivo), un trabajo en cola para las miniaturas y ClamAV o un servicio
+externo para el análisis.
 
 ## `verify-clean` con base vacía
 

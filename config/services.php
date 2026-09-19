@@ -50,6 +50,11 @@ return [
         'url' => env('FAKE_CRM_URL', 'http://127.0.0.1:8080'),
     ],
 
+    // Fotos y planos de cada lead. Disco privado: se sirven por una ruta con sesión, no por URL pública.
+    'attachments' => [
+        'disk' => env('ATTACHMENTS_DISK', 'local'),
+    ],
+
     // Clasificación de leads con IA. Sin API key, los leads van directo a revisión humana.
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY'),

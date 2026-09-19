@@ -5,6 +5,7 @@ namespace Reformas\Shared\Infrastructure\Laravel;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Reformas\Delivery\Outbox\Domain\CircuitBreaker;
 use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
@@ -23,6 +24,10 @@ use Reformas\Integrations\ApiClient\Domain\ApiClientRepository;
 use Reformas\Integrations\ApiClient\Domain\ApiKeyGenerator;
 use Reformas\Integrations\ApiClient\Infrastructure\Persistence\Eloquent\EloquentApiClientRepository;
 use Reformas\Integrations\ApiClient\Infrastructure\RandomApiKeyGenerator;
+use Reformas\Leads\Attachment\Domain\AttachmentRepository;
+use Reformas\Leads\Attachment\Domain\AttachmentStorage;
+use Reformas\Leads\Attachment\Infrastructure\Persistence\Eloquent\EloquentAttachmentRepository;
+use Reformas\Leads\Attachment\Infrastructure\Storage\LaravelAttachmentStorage;
 use Reformas\Leads\Classification\Application\Generate\ClassifyLeadOnLeadReceived;
 use Reformas\Leads\Classification\Application\Generate\LeadClassificationGenerator;
 use Reformas\Leads\Classification\Domain\ClassificationQueue;
@@ -62,6 +67,7 @@ final class ReformasServiceProvider extends ServiceProvider
         DeliveryQueue::class => LaravelDeliveryQueue::class,
         LeadClassificationRepository::class => EloquentLeadClassificationRepository::class,
         ClassificationQueue::class => LaravelClassificationQueue::class,
+        AttachmentRepository::class => EloquentAttachmentRepository::class,
     ];
 
     public function register(): void
@@ -69,6 +75,10 @@ final class ReformasServiceProvider extends ServiceProvider
         $this->app->bind(EventBus::class, fn (Application $app): EventBus => new SubscribersEventBus(
             $app->make(OutboxEventBus::class),
             [$app->make(ClassifyLeadOnLeadReceived::class)],
+        ));
+
+        $this->app->bind(AttachmentStorage::class, fn (): AttachmentStorage => new LaravelAttachmentStorage(
+            Storage::disk(config()->string('services.attachments.disk')),
         ));
 
         $this->app->bind(LeadClassifier::class, function (): LeadClassifier {

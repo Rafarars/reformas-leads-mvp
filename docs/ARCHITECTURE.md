@@ -319,6 +319,31 @@ lead.received ─► ClassifyLeadOnLeadReceived ─► ClassifyLeadJob (cola, l�
 
 La llamada al modelo queda **fuera** de la transacción: no se retiene la base mientras responde.
 
+## Fotos y planos
+
+Contexto `src/Leads/Attachment`. La pregunta que responde: _¿cómo se suben archivos sin que un fallo deje
+basura o agujeros?_
+
+```
+POST /api/v1/leads/{lead}/attachments   (o desde el panel, con sesión)
+        │  valida tipo, tamaño y nombre ANTES de tocar el disco
+        ▼
+   AttachmentStorage->write(ruta, contenido)      ← el disco no participa en la transacción
+        │
+        ├─ transacción: guardar la fila ──► ok
+        └─ falla ──► storage->delete(ruta) y se propaga el error
+```
+
+| Decisión                                              | Por qué                                                                                   |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Endpoint **aparte** del alta del lead                 | Subir una foto es lento y puede fallar; el lead ya existe y no se pierde                  |
+| La **ruta la calcula el dominio** con identificadores | `leads/<lead>/<adjunto>.<ext>`. Con el nombre recibido, un `../` escaparía del directorio |
+| **Lista blanca** de formatos (JPG, PNG, WEBP, PDF)    | Con lista negra siempre falta algo. SVG queda fuera: puede llevar scripts                 |
+| Extensión según el **tipo declarado**, no el nombre   | `plano.jpg` que es un PDF se guarda como `.pdf`                                           |
+| **Disco privado** y descarga por una ruta con sesión  | Los archivos no se sirven solos desde el navegador                                        |
+| **Borrado explícito** si la transacción falla         | El sistema de archivos no tiene rollback: sin esto quedan archivos huérfanos              |
+| Límite de **10 MB** en el dominio y en la validación  | Rechazar pronto, y que la regla viva en el dominio aunque cambie la puerta de entrada     |
+
 ## Herramientas de la demo
 
 El CRM simulado (`docker/fake-crm`), su cliente (`app/Services/FakeCrmClient`) y los leads de

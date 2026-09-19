@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Leads\LeadAttachmentPostController;
 use App\Http\Controllers\Api\V1\Leads\LeadPostController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,4 +10,5 @@ Route::prefix('v1')
     ->middleware(['api.client', 'throttle:api-clients', 'idempotent'])
     ->group(function () {
         Route::post('leads', LeadPostController::class)->name('leads.store');
+        Route::post('leads/{lead}/attachments', LeadAttachmentPostController::class)->name('leads.attachments.store');
     });

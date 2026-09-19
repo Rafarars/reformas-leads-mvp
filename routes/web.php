@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Attachments\AttachmentGetController;
+use App\Http\Controllers\Attachments\AttachmentPostController;
 use App\Http\Controllers\Classification\ClassificationDraftApprovePostController;
 use App\Http\Controllers\Classification\ClassificationGetController;
 use App\Http\Controllers\Classification\ClassificationReviewPostController;
@@ -22,6 +24,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('classification', ClassificationGetController::class)->name('classification');
     Route::post('classification/{lead}/review', ClassificationReviewPostController::class)->name('classification.review');
     Route::post('classification/{lead}/draft/approve', ClassificationDraftApprovePostController::class)->name('classification.draft.approve');
+
+    Route::post('leads/{lead}/attachments', AttachmentPostController::class)->name('leads.attachments.store');
+    Route::get('attachments/{attachment}', AttachmentGetController::class)->name('attachments.show');
 
     Route::get('resilience', ResilienceGetController::class)->name('resilience');
     Route::post('resilience/outage', ResilienceOutagePostController::class)->name('resilience.outage');

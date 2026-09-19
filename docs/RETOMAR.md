@@ -16,7 +16,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 | ------------------------ | ----------------------------------------------------------------------------------- |
 | Repositorio              | github.com/Rafarars/reformas-leads-mvp (privado)                                    |
 | Último commit verificado | `58c4096`, CI en verde                                                              |
-| Pruebas                  | Pest 348 · PHPStan nivel 7 sin errores · Playwright 9                               |
+| Pruebas                  | Pest 379 · PHPStan nivel 7 sin errores · Playwright 9                               |
 | Servicios                | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                          |
 | URLs locales             | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control` |
 | Usuario de prueba        | `test@example.com` / `password`                                                     |
@@ -67,7 +67,12 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
     - [ ] Borrador del correo en párrafos (instrucción a Gemini)
     - [ ] Bot de Telegram propio del proyecto y revocar el token actual (expuesto en la sesión con agy)
     - [ ] Quitar `GMAIL_API_KEY` del `.env` (sobra)
-- [ ] **Paso 8 · Fotos y planos** (endpoint propio, misma transacción, borrar el archivo huérfano)
+- [x] **Paso 8 · Fotos y planos** (módulo `src/Leads/Attachment`)
+    - [x] Endpoint propio: `POST /api/v1/leads/{lead}/attachments` y subida desde el panel de Clasificación
+    - [x] La ruta del archivo la calcula el dominio con identificadores; lista blanca JPG/PNG/WEBP/PDF y 10 MB
+    - [x] Si la transacción falla, **el archivo se borra**: el disco no tiene rollback
+    - [x] Disco privado; descarga por una ruta con sesión, no por URL pública
+    - [x] Pruebas: dominio, caso de uso (incluida la limpieza), contrato del repositorio, API, panel y E2E
 - [ ] **Cierre**
     - [ ] Actualizar README con la demo y, si procede, un vídeo corto
     - [ ] Nodo de IA en n8n para algo no crítico con un modelo gratuito (Groq `qwen/qwen3.8-27b`; ver `docs/FUTURE.md`)
