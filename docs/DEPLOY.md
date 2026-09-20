@@ -54,15 +54,16 @@ algún otro.
    `render.yaml` ya define los dos servicios.
 2. Rellenar las variables marcadas como `sync: false`:
 
-| Variable                                      | De dónde sale                                                               |
-| --------------------------------------------- | --------------------------------------------------------------------------- |
-| `APP_KEY`                                     | `php artisan key:generate --show`                                           |
-| `APP_URL`                                     | La URL que da Render a la app                                               |
-| `DB_*`                                        | Supabase → Session pooler                                                   |
-| `AWS_*`                                       | Supabase → Storage → S3 connection                                          |
-| `GEMINI_API_KEY`                              | Google AI Studio                                                            |
-| `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` | `https://<n8n en Render>/webhook/reformas-events`                           |
-| `DELIVERY_CRM_URL`                            | Sin CRM desplegado, cualquier URL que falle sirve: demuestra los reintentos |
+| Variable                                      | De dónde sale                                                                           |
+| --------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `APP_KEY`                                     | `php artisan key:generate --show`                                                       |
+| `APP_URL`                                     | La URL que da Render a la app                                                           |
+| `DB_*`                                        | Supabase → Session pooler                                                               |
+| `AWS_*`                                       | Supabase → Storage → S3 connection                                                      |
+| `GEMINI_API_KEY`                              | Google AI Studio                                                                        |
+| `ADMIN_EMAIL` y `ADMIN_PASSWORD`              | Tu cuenta del panel: se crea al arrancar (`app:admin:ensure`). Sin ellas no hay usuario |
+| `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` | `https://<n8n en Render>/webhook/reformas-events`                                       |
+| `DELIVERY_CRM_URL`                            | Sin CRM desplegado, cualquier URL que falle sirve: demuestra los reintentos             |
 
 `start.sh` ejecuta `app:check-config` y las migraciones antes de servir tráfico: con la configuración a
 medias, el servicio no arranca.
@@ -79,7 +80,13 @@ falta: el puerto es alto.
    (`NODE_OPTIONS=--max-old-space-size=350`), sin plantillas ni avisos de versión, menos conexiones al
    pooler y poda del historial.
 
-3. **Página en blanco tras desplegar:** Render termina el TLS y reenvía por `http`, así que Laravel
+3. **Sin usuario para entrar:** el usuario de prueba de local (`test@example.com`) no existe en producción
+   ni debe existir: tiene una contraseña conocida. El administrador se crea al arrancar desde
+   `ADMIN_EMAIL` y `ADMIN_PASSWORD`, y **el registro público está cerrado en producción**
+   (`REGISTRATION_ENABLED`): con él abierto, cualquiera entraría al panel y podría aprobar correos que
+   salen de tu Gmail. El panel no distingue roles: quien entra puede todo.
+
+4. **Página en blanco tras desplegar:** Render termina el TLS y reenvía por `http`, así que Laravel
    generaba las URLs de los assets con `http` y el navegador las bloqueaba por contenido mixto. Arreglo:
    `trustProxies(at: '*')` en `bootstrap/app.php`.
 

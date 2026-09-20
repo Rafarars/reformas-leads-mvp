@@ -1,8 +1,9 @@
-# Se mantienen todas las reglas por defecto y solo se añade una excepción muy acotada.
+# Se mantienen todas las reglas por defecto y solo se añaden excepciones muy acotadas.
 [extend]
 useDefault = true
 
 [allowlist]
-description = "En render.yaml (y al citarlo en la documentación) los NOMBRES de variables van tras 'key:', y la regla generic-api-key los toma por secretos. Solo se permiten nombres en mayúsculas: cualquier valor real se sigue detectando."
+description = "Excepciones acotadas: (1) en render.yaml los NOMBRES de variables van tras 'key:' y la regla generic-api-key los toma por secretos; solo se permiten nombres en mayúsculas, cualquier valor real se sigue detectando. (2) Las contraseñas inventadas de la prueba del administrador, solo en ese archivo."
 regexTarget = "match"
 regexes = ['''key:\s*[A-Z][A-Z0-9_]{2,}''']
+paths = ['''tests/Feature/EnsureAdminUserTest\.php''']
