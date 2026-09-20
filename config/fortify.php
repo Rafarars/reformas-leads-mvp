@@ -161,7 +161,9 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // Abierto en local y en pruebas; cerrado en producción, donde el panel es de la empresa: con el
+        // registro abierto, cualquiera podría entrar y aprobar correos que salen de su cuenta.
+        ...(env('REGISTRATION_ENABLED', env('APP_ENV') !== 'production') ? [Features::registration()] : []),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

@@ -15,6 +15,13 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    // Cuenta del administrador, creada al arrancar si ambas variables existen (app:admin:ensure).
+    // Se define por entorno para no dejar una contraseña conocida en el repositorio.
+    'admin' => [
+        'email' => env('ADMIN_EMAIL'),
+        'password' => env('ADMIN_PASSWORD'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

@@ -6,6 +6,8 @@ set -e
 # Falla en cerrado: con configuración inválida no se sirve tráfico.
 php artisan app:check-config
 php artisan migrate --force
+# Idempotente: crea o actualiza al administrador a partir de ADMIN_EMAIL y ADMIN_PASSWORD.
+php artisan app:admin:ensure
 
 # Cada proceso en su bucle: si muere, vuelve a arrancar solo en vez de dejar la cola parada
 # sin que nadie se entere.

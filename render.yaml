@@ -13,6 +13,11 @@ services:
       envVars:
           - key: APP_NAME
             value: Reformas Leads
+          # Cuenta del administrador: se crea al arrancar. El registro público está cerrado en producción.
+          - key: ADMIN_EMAIL
+            sync: false
+          - key: ADMIN_PASSWORD
+            sync: false
           - key: APP_ENV
             value: production
           - key: APP_DEBUG
