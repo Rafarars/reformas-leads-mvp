@@ -112,7 +112,12 @@ services:
           # El plan gratuito da 512 MB y n8n 2.x se queda sin memoria al arrancar. Dieta:
           # tope de montón por debajo del límite del contenedor y fuera todo lo que no usamos.
           - key: NODE_OPTIONS
-            value: '--max-old-space-size=350'
+            value: '--max-old-space-size=256'
+          # Una ejecución a la vez y cargas pequeñas: los avisos son texto, no archivos.
+          - key: N8N_CONCURRENCY_PRODUCTION_LIMIT
+            value: '2'
+          - key: N8N_PAYLOAD_SIZE_MAX
+            value: '4'
           - key: N8N_TEMPLATES_ENABLED
             value: 'false'
           - key: N8N_VERSION_NOTIFICATIONS_ENABLED
