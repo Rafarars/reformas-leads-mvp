@@ -2,7 +2,28 @@
 
 Documento de traspaso: lo necesario para continuar **sin depender de ninguna conversación**.
 
-**Actualizado:** 15 de septiembre de 2026
+**Actualizado:** 20 de septiembre de 2026
+
+## ⚠️ Punto de retorno inmediato: el despliegue
+
+**La app está viva en Render y n8n sigue CAÍDO.** Todo el detalle, con lo que ya se descartó, en
+[`DEPLOY-BITACORA.md`](DEPLOY-BITACORA.md) §6 y §7.
+
+1. **Migrar la base de n8n una sola vez desde la máquina de Rafael** (n8n se queda sin memoria en los
+   512 MB de Render al aplicar ~200 migraciones sobre una base vacía y reinicia sin terminar nunca).
+   Comando en `DEPLOY-BITACORA.md` §6. Necesita `SUPABASE_DB_PASSWORD` y `N8N_ENCRYPTION_KEY` en el `.env`
+   local (**la misma clave que en Render**). **Nunca pedir ni pegar esos valores en el chat.**
+2. Cuando el n8n de Render responda: crear el usuario del editor, las credenciales de **Telegram** (bot
+   `@leads_reformas_mvp_bot`) y **Gmail** (añadir la URI
+   `https://reformas-n8n.onrender.com/rest/oauth2-credential/callback` en Google Cloud), importar
+   `n8n/workflows/reformas-avisos.json`, poner el `chat_id` real y **publicarlo**.
+3. Rafael pone `ADMIN_EMAIL` y `ADMIN_PASSWORD` en Render (servicio `reformas-leads` → Environment) para
+   poder entrar. El registro público está cerrado en producción.
+4. Configurar el ping en cron-job.org (`/health` cada 10 min, L-V 9:00-18:00 hora española).
+5. Borrar el servicio viejo `n8n` del proyecto `n8n_selfhost_prueba` de Render.
+
+Publicar = `git checkout production && git merge main && git push && git checkout main`, **solo con el CI
+de `main` en verde** (Render despliega sin esperar al CI).
 
 ## Cómo retomar
 
@@ -12,14 +33,15 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 
 ## Dónde estamos
 
-|                          |                                                                                     |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| Repositorio              | github.com/Rafarars/reformas-leads-mvp (privado)                                    |
-| Último commit verificado | `58c4096`, CI en verde                                                              |
-| Pruebas                  | Pest 379 · PHPStan nivel 7 sin errores · Playwright 9                               |
-| Servicios                | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                          |
-| URLs locales             | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control` |
-| Usuario de prueba        | `test@example.com` / `password`                                                     |
+|                                |                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                       |
+| Último commit verificado       | `230596a` (`main` y `production`), CI en verde                                                         |
+| Pruebas                        | Pest 396 · PHPStan nivel 7 sin errores · Playwright 9                                                  |
+| Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                             |
+| URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                    |
+| Usuario de prueba (solo local) | `test@example.com` / `password`                                                                        |
+| Producción                     | app `https://reformas-leads.onrender.com` (viva) · n8n `https://reformas-n8n.onrender.com` (**caído**) |
 
 ## Checklist
 
@@ -74,12 +96,20 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
     - [x] Si la transacción falla, **el archivo se borra**: el disco no tiene rollback
     - [x] Disco privado; descarga por una ruta con sesión, no por URL pública
     - [x] Pruebas: dominio, caso de uso (incluida la limpieza), contrato del repositorio, API, panel y E2E
-- [ ] **Despliegue** (plan completo en `docs/DEPLOY.md`, `compose.prod.yml` listo)
-    - [ ] Crear la VM gratuita en Oracle Cloud (tarjeta solo para verificar; si la rechaza, alternativa
-          sin tarjeta al final de `DEPLOY.md`)
-    - [ ] Dominio, HTTPS y secretos en el servidor
-    - [ ] n8n en producción: rehacer la credencial de Gmail con la URI nueva e importar el flujo
-    - [ ] Proteger `/control` y el editor de n8n; copias de seguridad
+- [ ] **Despliegue** (guía `docs/DEPLOY.md`, historia y decisiones `docs/DEPLOY-BITACORA.md`)
+    - [x] Decisión: **Render + Supabase**, coste 0 y sin tarjeta. Oracle imposible (no admite Venezuela),
+          Google exige cuenta de facturación con tarjeta
+    - [x] Rama `production`; `render.yaml`; arranque con la cola y el planificador dentro del contenedor
+          (`docker/render/start.sh`); etapa `render` del Dockerfile sin _capabilities_
+    - [x] Supabase: proyecto, bucket privado `attachments`, Data API desactivada
+    - [x] Archivos por S3 (`ATTACHMENTS_DISK=s3`) y `trustProxies` para servir los assets por https
+    - [x] Administrador por variables de entorno (`app:admin:ensure`) y registro cerrado en producción
+    - [x] La **app** responde y está conectada a Supabase
+    - [ ] **n8n en Render: caído** (memoria en el primer arranque). Ver el punto de retorno arriba
+    - [ ] `ADMIN_EMAIL` y `ADMIN_PASSWORD` en Render, para poder entrar
+    - [ ] Credenciales de Telegram y Gmail en el n8n de producción, importar y publicar el flujo
+    - [ ] Ping por horario (cron-job.org) y borrar el servicio viejo `n8n` de Render
+    - [ ] Probar la subida de fotos en producción (Supabase Storage)
 - [ ] **Cierre**
     - [ ] Actualizar README con la demo y, si procede, un vídeo corto
     - [ ] Nodo de IA en n8n para algo no crítico con un modelo gratuito (Groq `qwen/qwen3.8-27b`; ver `docs/FUTURE.md`)
@@ -93,6 +123,8 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 - [ ] `make verify-clean` contra una base vacía
 - [ ] Autenticar `/control` del CRM simulado si alguna vez se despliega
 - [ ] WhatsApp como canal al cliente
+- [ ] Miniatura de las fotos en el panel de Clasificación (pedida por Rafael)
+- [ ] Groq detrás del puerto `LeadClassifier` (`CLASSIFIER_DRIVER`), más peticiones que Gemini
 
 ## Decisiones cerradas — no volver a discutirlas
 
@@ -114,3 +146,7 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 - Otra herramienta que continúe el trabajo (p. ej. agy) debe leer este documento primero y proponer antes de
   cambiar la arquitectura: ver los errores registrados en `docs/BITACORA.md`
 - Automatismos nuevos (Makefile, enganches) y reglas de `AGENTS.md`: **se proponen antes de escribirlos**
+- **Despliegue:** Render + Supabase. Nunca desplegar desde `main`: se publica desde `production`
+- **No dejar usuario de prueba en producción**; el administrador sale de variables de entorno
+- Un `push` solo sale si `gitleaks` pasa: encadenar con `&&`, nunca con `;`
+- `make secrets` escanea el historial: pasarlo **después** del commit

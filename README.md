@@ -157,14 +157,15 @@ servicio detenido, o con assets compilados más viejos que el código de React.
 
 ## Documentación
 
-| Archivo                                        | Contenido                                                                |
-| ---------------------------------------------- | ------------------------------------------------------------------------ |
-| [`docs/spec.md`](docs/spec.md)                 | Problema, alcance, arquitectura, resiliencia, IA y orden de construcción |
-| [`docs/USO.md`](docs/USO.md)                   | Cómo se usa cada pantalla, qué canal avisa a quién y cuánto tarda        |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Convención hexagonal: estructura, nombres y reglas                       |
-| [`docs/N8N.md`](docs/N8N.md)                   | Configuración reproducible de Google Cloud, Telegram y los flujos        |
-| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)       | Bitácora del arranque: cada fase, lo que se encontró y cómo se verificó  |
-| [`docs/BITACORA.md`](docs/BITACORA.md)         | Bitácora de la IA y los avisos: decisiones, tropiezos y correcciones     |
-| [`docs/DEPLOY.md`](docs/DEPLOY.md)             | Plan de despliegue con coste cero y qué proteger antes de publicar       |
-| [`docs/FUTURE.md`](docs/FUTURE.md)             | Mejoras diferidas, con su porqué                                         |
-| [`docs/RETOMAR.md`](docs/RETOMAR.md)           | Estado actual y checklist                                                |
+| Archivo                                              | Contenido                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------ |
+| [`docs/spec.md`](docs/spec.md)                       | Problema, alcance, arquitectura, resiliencia, IA y orden de construcción |
+| [`docs/USO.md`](docs/USO.md)                         | Cómo se usa cada pantalla, qué canal avisa a quién y cuánto tarda        |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)       | Convención hexagonal: estructura, nombres y reglas                       |
+| [`docs/N8N.md`](docs/N8N.md)                         | Configuración reproducible de Google Cloud, Telegram y los flujos        |
+| [`docs/BOOTSTRAP.md`](docs/BOOTSTRAP.md)             | Bitácora del arranque: cada fase, lo que se encontró y cómo se verificó  |
+| [`docs/BITACORA.md`](docs/BITACORA.md)               | Bitácora de la IA y los avisos: decisiones, tropiezos y correcciones     |
+| [`docs/DEPLOY.md`](docs/DEPLOY.md)                   | Plan de despliegue con coste cero y qué proteger antes de publicar       |
+| [`docs/DEPLOY-BITACORA.md`](docs/DEPLOY-BITACORA.md) | Por qué Render y no otro servidor, qué falló y cómo se resolvió          |
+| [`docs/FUTURE.md`](docs/FUTURE.md)                   | Mejoras diferidas, con su porqué                                         |
+| [`docs/RETOMAR.md`](docs/RETOMAR.md)                 | Estado actual y checklist                                                |
