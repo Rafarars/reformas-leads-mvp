@@ -10,7 +10,10 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 arrancase está encontrada y probada en local.** Todo el detalle en
 [`DEPLOY-BITACORA.md`](DEPLOY-BITACORA.md) §6 y §7.
 
-1. **Rafael añade tres variables** en Render → `reformas-n8n` → _Environment_, y deja que redespliegue:
+1. ~~**Rafael añade tres variables** en Render → `reformas-n8n` → _Environment_~~ ✅ **Hecho y verificado
+   desde fuera** el 20 de septiembre de 2026: `/healthz` da 200, `/` y `/rest/settings` dan 404 (la
+   interfaz no se sirve), `POST /webhook/reformas-events` da 404 (enruta, falta publicar el flujo) y 25
+   peticiones seguidas sin un solo fallo ni reinicio.
 
     | Variable              | Valor                                                    |
     | --------------------- | -------------------------------------------------------- |
@@ -45,15 +48,15 @@ de `main` en verde** (Render despliega sin esperar al CI).
 
 ## Dónde estamos
 
-|                                |                                                                                                                               |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                              |
-| Último commit verificado       | `230596a` (`main` y `production`), CI en verde                                                                                |
-| Pruebas                        | Pest 396 · PHPStan nivel 7 sin errores · Playwright 9                                                                         |
-| Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                    |
-| URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                           |
-| Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                               |
-| Producción                     | app `https://reformas-leads.onrender.com` (viva) · n8n `https://reformas-n8n.onrender.com` (**pendiente de las 3 variables**) |
+|                                |                                                                                                                                   |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
+| Último commit verificado       | `230596a` (`main` y `production`), CI en verde                                                                                    |
+| Pruebas                        | Pest 396 · PHPStan nivel 7 sin errores · Playwright 9                                                                             |
+| Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
+| URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
+| Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                                   |
+| Producción                     | app `https://reformas-leads.onrender.com` (viva) · n8n `https://reformas-n8n.onrender.com` (**vivo**, sin editor: `/healthz` 200) |
 
 ## Checklist
 
