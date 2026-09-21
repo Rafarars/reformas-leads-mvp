@@ -121,6 +121,7 @@ encadenan dentro del propio script.
 | `docs/N8N.md`             | Configuración reproducible de Google Cloud, Telegram y los flujos               |
 | `docs/DEPLOY.md`          | Plan de despliegue con coste cero y qué proteger antes de publicar              |
 | `docs/DEPLOY-BITACORA.md` | Historia del despliegue: alternativas descartadas, tropiezos y el estado exacto |
+| `docs/PLAN.md`            | Plan ejecutable del tramo en curso: qué, por qué y cómo se comprueba            |
 | `docs/FUTURE.md`          | Mejoras diferidas, con su porqué                                                |
 | `docs/RETOMAR.md`         | Estado actual y checklist de lo que falta                                       |
 | `README.md`               | Portada del portafolio                                                          |

@@ -40,6 +40,9 @@ arrancase está encontrada y probada en local.** Todo el detalle en
 Publicar = `git checkout production && git merge main && git push && git checkout main`, **solo con el CI
 de `main` en verde** (Render despliega sin esperar al CI).
 
+> **Siguiente tramo de trabajo: [`PLAN.md`](PLAN.md)** — enlaces muertos del login, la prueba
+> inestable (y por qué **no** se arregla con `force: true`), y los avisos de Telegram por usuario.
+
 ## Cómo retomar
 
 1. Leer `AGENTS.md` (reglas), `docs/spec.md` (qué se construye) y `docs/ARCHITECTURE.md` (cómo)
