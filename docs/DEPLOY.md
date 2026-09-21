@@ -74,11 +74,14 @@ binarios con capabilities sin ser root. La etapa `render` del Dockerfile —la �
 construyen las plataformas que no dejan elegir target— copia el binario para quitársela. Allí no hace
 falta: el puerto es alto.
 
-2. **n8n se quedaba sin memoria** (`JavaScript heap out of memory`) en los 512 MB del plan gratuito. Dos
-   causas: faltaba `DB_POSTGRESDB_SSL_ENABLED=true` —Supabase exige TLS y la conexión se colgaba hasta
-   agotar el tiempo— y n8n arrancaba piezas que no usamos. Se añadieron tope de montón
-   (`NODE_OPTIONS=--max-old-space-size=350`), sin plantillas ni avisos de versión, menos conexiones al
-   pooler y poda del historial.
+2. **n8n se quedaba sin memoria** en los 512 MB del plan gratuito, y costó tres intentos dar con el porqué.
+   Faltaba `DB_POSTGRESDB_SSL_ENABLED=true` —Supabase exige TLS y la conexión se colgaba— y el primer
+   arranque sobre una base vacía no cabe, así que las ~200 migraciones se hicieron una vez desde una
+   máquina con memoria. Pero lo que de verdad lo mataba eran otras dos cosas: n8n 2.x arranca **un segundo
+   proceso de Node** (`N8N_RUNNERS_ENABLED=false` lo quita) y **servir el editor** no cabe
+   (`N8N_DISABLE_UI=true`). Con eso se queda plano en ~300 MB. Medirlo exige capar el contenedor de verdad
+   (`docker run --memory=512m`); el razonamiento completo está en
+   [`DEPLOY-BITACORA.md`](DEPLOY-BITACORA.md) §6.
 
 3. **Sin usuario para entrar:** el usuario de prueba de local (`test@example.com`) no existe en producción
    ni debe existir: tiene una contraseña conocida. El administrador se crea al arrancar desde
@@ -92,14 +95,24 @@ falta: el puerto es alto.
 
 ## 3. Render: n8n
 
+El n8n de Render **solo ejecuta**: recibe el webhook y dispara Telegram y Gmail. No sirve el editor, porque
+eso no cabe en 512 MB. **Se administra desde otra instancia de n8n contra la misma base de Supabase**, que
+es lo que el propio n8n recomienda para producción. El estado vive en la base, así que apagar la máquina
+desde la que se edita **no afecta al servicio**.
+
 1. El mismo blueprint crea el servicio `reformas-n8n` con la imagen oficial.
 2. Variables: las `DB_POSTGRESDB_*` de Supabase (esquema `n8n`), `N8N_ENCRYPTION_KEY`
    (`openssl rand -hex 32`), y `N8N_HOST` y `WEBHOOK_URL` con la URL que le dé Render.
-3. Al abrirlo la primera vez, crear el usuario del editor.
-4. **Rehacer la credencial de Gmail**: la URI de redirección pasa a
-   `https://<n8n en Render>/rest/oauth2-credential/callback`; hay que añadirla en Google Cloud.
-5. Crear la credencial de Telegram con el token del bot.
-6. Importar el flujo (`n8n/workflows/reformas-avisos.json`), poner el `chat_id` real y **publicarlo**.
+3. **Migrar la base una vez** desde una máquina con memoria, con esas mismas variables y la **misma**
+   `N8N_ENCRYPTION_KEY`. Cuando el log diga _"Editor is now accessible"_, **apagar el contenedor**: si se
+   queda vivo consume conexiones del pooler.
+4. Comprobar que responde: `https://<n8n en Render>/healthz` → 200.
+5. Levantar n8n en local **contra esa misma base** y, desde ahí:
+    - **Rehacer la credencial de Gmail**: la URI de redirección pasa a
+      `https://<n8n en Render>/rest/oauth2-credential/callback`; hay que añadirla en Google Cloud.
+    - Crear la credencial de Telegram con el token del bot.
+    - Importar el flujo (`n8n/workflows/reformas-avisos.json`), poner el `chat_id` real y **publicarlo**.
+    - Apagar ese n8n local al terminar.
 
 ## 4. Mantenerlo despierto
 
@@ -120,12 +133,12 @@ y sus avisos salen en cuanto la cola vuelve a correr. Es el comportamiento que e
 
 ## 6. Antes de enseñarlo a nadie
 
-| Riesgo                    | Qué hacer                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------- |
-| El editor de n8n expuesto | Contraseña fuerte en el usuario del editor                                      |
-| Datos reales              | **Solo datos ficticios**: el tier gratuito de la IA puede usarlos para entrenar |
-| La API pública            | Revisar `API_REQUESTS_PER_MINUTE`                                               |
-| Pérdida de datos          | Supabase hace copias; exportar el flujo de n8n al repositorio tras cada cambio  |
+| Riesgo                    | Qué hacer                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------- |
+| El editor de n8n expuesto | No se sirve: `N8N_DISABLE_UI=true`. Se administra desde local contra la misma base |
+| Datos reales              | **Solo datos ficticios**: el tier gratuito de la IA puede usarlos para entrenar    |
+| La API pública            | Revisar `API_REQUESTS_PER_MINUTE`                                                  |
+| Pérdida de datos          | Supabase hace copias; exportar el flujo de n8n al repositorio tras cada cambio     |
 
 ---
 

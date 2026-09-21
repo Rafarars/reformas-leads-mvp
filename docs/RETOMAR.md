@@ -6,21 +6,33 @@ Documento de traspaso: lo necesario para continuar **sin depender de ninguna con
 
 ## ⚠️ Punto de retorno inmediato: el despliegue
 
-**La app está viva en Render y n8n sigue CAÍDO.** Todo el detalle, con lo que ya se descartó, en
+**La app está viva en Render. La base de n8n ya está migrada en Supabase y la causa de que n8n no
+arrancase está encontrada y probada en local.** Todo el detalle en
 [`DEPLOY-BITACORA.md`](DEPLOY-BITACORA.md) §6 y §7.
 
-1. **Migrar la base de n8n una sola vez desde la máquina de Rafael** (n8n se queda sin memoria en los
-   512 MB de Render al aplicar ~200 migraciones sobre una base vacía y reinicia sin terminar nunca).
-   Comando en `DEPLOY-BITACORA.md` §6. Necesita `SUPABASE_DB_PASSWORD` y `N8N_ENCRYPTION_KEY` en el `.env`
-   local (**la misma clave que en Render**). **Nunca pedir ni pegar esos valores en el chat.**
-2. Cuando el n8n de Render responda: crear el usuario del editor, las credenciales de **Telegram** (bot
-   `@leads_reformas_mvp_bot`) y **Gmail** (añadir la URI
-   `https://reformas-n8n.onrender.com/rest/oauth2-credential/callback` en Google Cloud), importar
-   `n8n/workflows/reformas-avisos.json`, poner el `chat_id` real y **publicarlo**.
+1. **Rafael añade tres variables** en Render → `reformas-n8n` → _Environment_, y deja que redespliegue:
+
+    | Variable              | Valor                                                    |
+    | --------------------- | -------------------------------------------------------- |
+    | `N8N_RUNNERS_ENABLED` | `false`                                                  |
+    | `N8N_DISABLE_UI`      | `true`                                                   |
+    | `NODE_OPTIONS`        | `--max-old-space-size=320` (sustituye al `256` anterior) |
+
+    Verificar después: `https://reformas-n8n.onrender.com/healthz` debe dar **200**. Ya están en
+    `render.yaml`, pero el panel manda hasta que se sincronice el blueprint.
+
+2. **La configuración de n8n se hace desde el n8n local**, apuntando a la base de Supabase (el de Render
+   ya no sirve el editor). Allí: credenciales de **Telegram** (bot `@leads_reformas_mvp_bot`) y **Gmail**
+   (añadir la URI `https://reformas-n8n.onrender.com/rest/oauth2-credential/callback` en Google Cloud),
+   importar `n8n/workflows/reformas-avisos.json`, poner el `chat_id` real y **publicarlo**. Al terminar,
+   **apagar ese contenedor**: si se queda encendido, consume conexiones del pooler de Supabase.
 3. Rafael pone `ADMIN_EMAIL` y `ADMIN_PASSWORD` en Render (servicio `reformas-leads` → Environment) para
    poder entrar. El registro público está cerrado en producción.
-4. Configurar el ping en cron-job.org (`/health` cada 10 min, L-V 9:00-18:00 hora española).
-5. Borrar el servicio viejo `n8n` del proyecto `n8n_selfhost_prueba` de Render.
+4. Verificar de punta a punta: lead → clasificación → Telegram; aprobar → Gmail; foto → Supabase Storage.
+5. Configurar el ping en cron-job.org (`/health` cada 10 min, L-V 9:00-18:00 hora española).
+6. Borrar el servicio viejo `n8n` del proyecto `n8n_selfhost_prueba` de Render.
+
+**Nunca pedir ni pegar `SUPABASE_DB_PASSWORD` ni `N8N_ENCRYPTION_KEY` en el chat.**
 
 Publicar = `git checkout production && git merge main && git push && git checkout main`, **solo con el CI
 de `main` en verde** (Render despliega sin esperar al CI).
@@ -33,15 +45,15 @@ de `main` en verde** (Render despliega sin esperar al CI).
 
 ## Dónde estamos
 
-|                                |                                                                                                        |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                       |
-| Último commit verificado       | `230596a` (`main` y `production`), CI en verde                                                         |
-| Pruebas                        | Pest 396 · PHPStan nivel 7 sin errores · Playwright 9                                                  |
-| Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                             |
-| URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                    |
-| Usuario de prueba (solo local) | `test@example.com` / `password`                                                                        |
-| Producción                     | app `https://reformas-leads.onrender.com` (viva) · n8n `https://reformas-n8n.onrender.com` (**caído**) |
+|                                |                                                                                                                               |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                              |
+| Último commit verificado       | `230596a` (`main` y `production`), CI en verde                                                                                |
+| Pruebas                        | Pest 396 · PHPStan nivel 7 sin errores · Playwright 9                                                                         |
+| Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                    |
+| URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                           |
+| Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                               |
+| Producción                     | app `https://reformas-leads.onrender.com` (viva) · n8n `https://reformas-n8n.onrender.com` (**pendiente de las 3 variables**) |
 
 ## Checklist
 

@@ -114,10 +114,27 @@ services:
             sync: false
           - key: N8N_PORT
             value: '10000'
-          # El plan gratuito da 512 MB y n8n 2.x se queda sin memoria al arrancar. Dieta:
-          # tope de montón por debajo del límite del contenedor y fuera todo lo que no usamos.
+          # El plan gratuito da 512 MB. Medido con el contenedor capado de verdad
+          # (docker run --memory=512m), n8n 2.38.7 cabe si se le quitan dos cosas.
+          #
+          # 1) n8n 2.x arranca por defecto un SEGUNDO proceso de Node para ejecutar
+          #    tareas (JS Task Runner + su broker). Dos runtimes no caben en 512 MB:
+          #    el núcleo mata el contenedor a los 27 s. Sin él, el código se ejecuta
+          #    en el proceso principal, como en n8n 1.x. Nuestro flujo no usa nodos
+          #    Code, así que no perdemos nada.
+          - key: N8N_RUNNERS_ENABLED
+            value: 'false'
+          # 2) Servir el editor es lo que revienta el contenedor: con el montón alto
+          #    lo mata el núcleo por memoria residente, con el montón bajo se ahoga V8.
+          #    Aquí n8n solo EJECUTA; se edita desde un n8n local apuntando a esta
+          #    misma base de Supabase, que es la separación que recomienda n8n.
+          - key: N8N_DISABLE_UI
+            value: 'true'
+          # Con lo anterior se queda plano en ~300 MB. Un tope de montón por debajo
+          # del límite del contenedor deja margen para la memoria que no es montón.
+          # Ojo: 256 es PEOR que no poner nada, ahoga a V8 y muere con salida 134.
           - key: NODE_OPTIONS
-            value: '--max-old-space-size=256'
+            value: '--max-old-space-size=320'
           # Una ejecución a la vez y cargas pequeñas: los avisos son texto, no archivos.
           - key: N8N_CONCURRENCY_PRODUCTION_LIMIT
             value: '2'

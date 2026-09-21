@@ -75,7 +75,7 @@ duerma. Render suspende la instancia entera tras 15 minutos sin tráfico HTTP, c
 | 5   | Un commit con hallazgos llegó a `origin`                       | Un script encadenado con `;` siguió tras un fallo                                                                                                                      | Encadenar con `&&` y condicionar el `push` a que el escaneo pase                                                                                           |
 | 6   | **n8n: `JavaScript heap out of memory` en bucle** (estado 134) | Ver §6                                                                                                                                                                 | **Sin resolver**                                                                                                                                           |
 
-## 6. El problema abierto: n8n no arranca en Render
+## 6. n8n no arrancaba en Render (resuelto)
 
 **Síntoma.** Peticiones a `https://reformas-n8n.onrender.com` dan 502 o se quedan cargando. Los registros
 muestran siempre lo mismo:
@@ -99,14 +99,14 @@ status 134"_.
   `SSL_ENABLED=true`, `POOL_SIZE=2`. Todos correctos.
 - **No es el tráfico.** El servicio se cae solo, sin peticiones.
 
-**Hipótesis vigente.** Sobre una base **vacía**, n8n ejecuta unas doscientas migraciones de golpe en el
+**Primera hipótesis** (resultó ser solo una parte). Sobre una base **vacía**, n8n ejecuta unas doscientas migraciones de golpe en el
 primer arranque. Eso necesita más de los 512 MB del plan gratuito, se aborta por memoria y, al reiniciar,
 **empieza desde cero**: nunca termina. La línea `Acquiring database migration lock...` sin nada después
 encaja con esto.
 
-**Intentos ya hechos** (no bastaron): `NODE_OPTIONS=--max-old-space-size` a 350 y luego 256, sin
-_task runners_, sin plantillas ni avisos de versión, `N8N_CONCURRENCY_PRODUCTION_LIMIT=2`,
-`EXECUTIONS_DATA_SAVE_ON_SUCCESS=none` y poda del historial.
+**Intentos ya hechos** (no bastaron): `NODE_OPTIONS=--max-old-space-size` a 350 y luego 256, sin plantillas
+ni avisos de versión, `N8N_CONCURRENCY_PRODUCTION_LIMIT=2`, `EXECUTIONS_DATA_SAVE_ON_SUCCESS=none` y poda
+del historial. Ninguno tocaba las dos causas reales (§6.3).
 
 **Plan.** Hacer esa migración **una sola vez desde la máquina de Rafael**, que tiene memoria de sobra,
 contra la misma base y el mismo esquema:
@@ -124,24 +124,81 @@ Cuando el registro diga _"Editor is now accessible"_, se detiene. **La `N8N_ENCR
 misma que la de Render**, o las credenciales guardadas no se podrán leer. Después el n8n de Render solo
 tiene que arrancar sobre un esquema ya migrado.
 
-**Si no funciona**, alternativas en orden: (1) probar con `DB_POSTGRESDB_POOL_SIZE=1` y menos
-`--max-old-space-size`; (2) SQLite **con disco persistente**, que Render solo da en planes de pago;
-(3) n8n en otro sitio gratuito (una VM que no sea Oracle) y solo la app en Render; (4) dejar n8n solo en
-local y desplegar la app con los avisos apuntando a una URL pública temporal.
+La migración **funcionó**: el esquema `n8n` quedó creado en Supabase. Pero Render **siguió cayendo**, así
+que la hipótesis de las migraciones era, como mucho, la mitad de la historia.
+
+### 6.1. El veredicto equivocado, y por qué lo era
+
+En una sesión aparte se midió el consumo de n8n en local con `docker stats`, se vio un pico de **798 MB**
+y se concluyó que n8n 2.38.7 es **imposible** en 512 MB. La conclusión era falsa, y las tres razones valen
+para cualquier medición de memoria:
+
+- **Medir en una máquina con 16 GB no dice nada.** Sin `--max-old-space-size`, V8 dimensiona el montón
+  según la memoria **del sistema**: deja crecer la basura hasta un par de gigas antes de recogerla. El pico
+  de 798 MB solo significaba que **nadie le pidió contenerse**.
+- **La memoria residente incluye páginas de fichero** (el binario de Node, el `node_modules` enorme) que el
+  núcleo **descarta bajo presión** en vez de provocar un fallo. 669 MB sin límite **no** equivale a 669 MB
+  con límite.
+- **`Database ping failed: connection timed out` no es un síntoma de memoria.** Sale también en local
+  contra Supabase, con memoria de sobra. Es un tic del pooler.
+
+**La única prueba válida es reproducir el límite**: `docker run --memory=512m --memory-swap=512m`.
+
+### 6.2. Lo que dijo esa prueba
+
+Cuatro arranques contra la base ya migrada, todos con el contenedor capado de verdad a 512 MB:
+
+| Configuración                             | Resultado                                                                           |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| montón 352, ejecutor de tareas activo     | muere a los 27 s, salida **137** (lo mata el núcleo)                                |
+| montón 352, sin ejecutor                  | arranca en 9 s con 234 MB, `/healthz` 200; muere al abrir el editor (137)           |
+| montón 256, sin ejecutor                  | arranca con 311 MB, `/healthz` 200; muere al abrir el editor (**134**, se ahoga V8) |
+| **montón 320, sin ejecutor y sin editor** | **estable: 300 peticiones de webhook, 296-310 MB planos, cero reinicios**           |
+
+### 6.3. Las dos causas reales
+
+1. **Un segundo proceso de Node.** n8n 2.x arranca por defecto un _JS Task Runner_ aparte, con su
+   _broker_. Dos runtimes de Node no caben en 512 MB; la última línea antes de morir era
+   `Registered runner "JS Task Runner"`. Con `N8N_RUNNERS_ENABLED=false` el código vuelve a ejecutarse en
+   el proceso principal, como en n8n 1.x. **El flujo no usa nodos `Code`** (webhook, switch, telegram,
+   gmail y stop-and-error), así que no se pierde nada.
+2. **El editor.** Servir la interfaz revienta el contenedor por los dos lados: con el montón alto lo mata
+   el núcleo por memoria residente, con el montón bajo se ahoga V8. Con `N8N_DISABLE_UI=true` el problema
+   desaparece y los webhooks siguen igual.
+
+**Y un tiro en el pie propio:** `NODE_OPTIONS=--max-old-space-size=256` estaba en `render.yaml` desde el
+principio, puesto por nosotros creyendo que ayudaba. Ese valor es **peor que no poner nada**. Render nunca
+tuvo una oportunidad justa.
+
+### 6.4. Cómo queda
+
+n8n en Render **solo ejecuta**: recibe el webhook y dispara Telegram y Gmail. Para **editar** el flujo o
+crear credenciales se levanta n8n en local apuntando a **la misma base de Supabase**, donde el editor tiene
+toda la memoria que quiera. Es la separación que el propio n8n recomienda para producción.
+
+Que el portátil esté apagado **no afecta al servicio**: el estado vive en Supabase y quien ejecuta es
+Render. El portátil es el teclado, no el servidor. Eso lo distingue de la alternativa descartada de correr
+n8n en casa con un túnel, donde apagar el equipo sí tumba el servicio.
+
+### 6.5. Cabo suelto que apareció
+
+El contenedor temporal de la migración quedó **seis horas encendido**, comiéndose conexiones del pooler de
+Supabase, que en el plan gratuito son pocas. **Apagarlo siempre en cuanto termine de migrar.**
 
 ## 7. Estado exacto al cerrar
 
-| Pieza                                                                                            | Estado                                                                                                                                    |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| Rama `production`                                                                                | En `230596a`, igual que `main`, CI en verde                                                                                               |
-| App `reformas-leads`                                                                             | ✅ Viva. `https://reformas-leads.onrender.com/health` → `{"status":"ok","database":"up"}`. Migraciones aplicadas en Supabase              |
-| Login de la app                                                                                  | ⏳ Faltan `ADMIN_EMAIL` y `ADMIN_PASSWORD` en Render (Rafael)                                                                             |
-| Archivos (Supabase Storage)                                                                      | Preparado; sin probar en producción                                                                                                       |
-| **n8n `reformas-n8n`**                                                                           | ❌ **Caído** (§6)                                                                                                                         |
-| Credenciales de Telegram y Gmail en el n8n de producción                                         | ⏳ Depende de que n8n arranque. La URI de redirección de Gmail pasa a `https://reformas-n8n.onrender.com/rest/oauth2-credential/callback` |
-| Importar `n8n/workflows/reformas-avisos.json`                                                    | ⏳ Igual                                                                                                                                  |
-| Ping por horario (cron-job.org)                                                                  | ⏳                                                                                                                                        |
-| Servicio viejo `n8n` en Render (proyecto `n8n_selfhost_prueba`, de hace un año, imagen `latest`) | Para borrar cuando el nuevo funcione                                                                                                      |
+| Pieza                                                                                            | Estado                                                                                                                                                                          |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Rama `production`                                                                                | En `230596a`, igual que `main`, CI en verde                                                                                                                                     |
+| App `reformas-leads`                                                                             | ✅ Viva. `https://reformas-leads.onrender.com/health` → `{"status":"ok","database":"up"}`. Migraciones aplicadas en Supabase                                                    |
+| Login de la app                                                                                  | ⏳ Faltan `ADMIN_EMAIL` y `ADMIN_PASSWORD` en Render (Rafael)                                                                                                                   |
+| Archivos (Supabase Storage)                                                                      | Preparado; sin probar en producción                                                                                                                                             |
+| Base de n8n en Supabase (esquema `n8n`)                                                          | ✅ Migrada desde la máquina de Rafael. **No repetir**                                                                                                                           |
+| **n8n `reformas-n8n`**                                                                           | ⏳ Causa encontrada y probada en local (§6). Falta aplicar las tres variables en Render y verificar `/healthz`                                                                  |
+| Credenciales de Telegram y Gmail                                                                 | ⏳ Se crean desde el n8n **local** contra la base de Supabase (§6.4). La URI de redirección de Gmail pasa a `https://reformas-n8n.onrender.com/rest/oauth2-credential/callback` |
+| Importar `n8n/workflows/reformas-avisos.json`                                                    | ⏳ Igual, desde el n8n local                                                                                                                                                    |
+| Ping por horario (cron-job.org)                                                                  | ⏳                                                                                                                                                                              |
+| Servicio viejo `n8n` en Render (proyecto `n8n_selfhost_prueba`, de hace un año, imagen `latest`) | Para borrar cuando el nuevo funcione                                                                                                                                            |
 
 Tras el despliegue quedan: miniatura de las fotos en el panel (pedida por Rafael), Groq detrás de
 `LeadClassifier`, repositorio público, vídeo y revocar el token del bot antiguo de Telegram.
