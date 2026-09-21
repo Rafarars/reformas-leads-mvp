@@ -63,11 +63,12 @@ services:
             value: 'true'
           - key: GEMINI_API_KEY
             sync: false
+          # URL COMPLETA, con https://. Se pone a mano con la que Render dé a reformas-n8n.
+          # No usar `fromService` con `hostport`: devuelve "host:puerto" sin esquema, y el
+          # código la usa tal cual (`base_url.'/healthz'`), así que la comprobación falla
+          # siempre y el panel marca n8n como caído aunque esté vivo.
           - key: N8N_BASE_URL
-            fromService:
-                name: reformas-n8n
-                type: web
-                property: hostport
+            sync: false
           - key: DELIVERY_CRM_URL
             sync: false
           - key: DELIVERY_TEAM_URL

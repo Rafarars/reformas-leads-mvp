@@ -120,9 +120,12 @@ de `main` en verde** (Render despliega sin esperar al CI).
     - [x] Archivos por S3 (`ATTACHMENTS_DISK=s3`) y `trustProxies` para servir los assets por https
     - [x] Administrador por variables de entorno (`app:admin:ensure`) y registro cerrado en producción
     - [x] La **app** responde y está conectada a Supabase
-    - [ ] **n8n en Render: caído** (memoria en el primer arranque). Ver el punto de retorno arriba
-    - [ ] `ADMIN_EMAIL` y `ADMIN_PASSWORD` en Render, para poder entrar
-    - [ ] Credenciales de Telegram y Gmail en el n8n de producción, importar y publicar el flujo
+    - [x] **n8n en Render: vivo** (§6 de `DEPLOY-BITACORA.md`: sin ejecutor de tareas y sin editor)
+    - [x] `ADMIN_EMAIL` y `ADMIN_PASSWORD` en Render, para poder entrar
+    - [x] `N8N_BASE_URL` con la **URL completa** (`https://…`). El blueprint no puede componerla:
+          `fromService` con `hostport` da "host:puerto" sin esquema y el panel marca n8n como caído
+    - [x] Credenciales de Telegram y Gmail en el n8n de producción, importar y publicar el flujo
+    - [x] **Probado de punta a punta en producción**: lead → Gemini → Telegram; aprobar → Gmail
     - [ ] Ping por horario (cron-job.org) y borrar el servicio viejo `n8n` de Render
     - [ ] Probar la subida de fotos en producción (Supabase Storage)
 - [ ] **Cierre**
