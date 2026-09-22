@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test } from '../../support/test';
 import { DashboardPage } from '../../pages/dashboard-page';
 import { startService, stopService } from '../../support/environment';
 

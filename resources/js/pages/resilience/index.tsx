@@ -127,7 +127,10 @@ export default function Resilience({
     const { errors } = usePage<PageProps>().props;
 
     // Refresco periódico: durante la demo se ve la cola crecer y drenarse sin recargar.
-    usePoll(POLL_EVERY_MS);
+    usePoll(POLL_EVERY_MS, {
+        only: ['delivery', 'crm'],
+        showProgress: false,
+    });
 
     const crmState = crm === null ? 'unreachable' : crm.outage ? 'down' : 'up';
     const post = (url: string, data: Record<string, number | boolean> = {}) =>

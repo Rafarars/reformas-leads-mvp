@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
 
@@ -17,6 +18,32 @@ class AuthenticationTest extends TestCase
         $response = $this->get(route('login'));
 
         $response->assertOk();
+    }
+
+    public function test_login_screen_provides_registration_and_reset_flags_when_enabled(): void
+    {
+        config(['fortify.features' => [Features::registration(), Features::resetPasswords()]]);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('auth/login')
+                ->where('canRegister', true)
+                ->where('canResetPassword', true)
+            );
+    }
+
+    public function test_login_screen_hides_registration_and_reset_flags_when_disabled(): void
+    {
+        config(['fortify.features' => []]);
+
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('auth/login')
+                ->where('canRegister', false)
+                ->where('canResetPassword', false)
+            );
     }
 
     public function test_users_can_authenticate_using_the_login_screen()

@@ -24,5 +24,16 @@ class DatabaseSeeder extends Seeder
                 'email' => 'test@example.com',
             ]);
         }
+
+        // Usuarios aislados por worker para evitar carreras de sesión y límite de Fortify en pruebas paralelas.
+        for ($i = 0; $i < 8; $i++) {
+            $email = "test+{$i}@example.com";
+            if (! User::query()->where('email', $email)->exists()) {
+                User::factory()->create([
+                    'name' => "Test User {$i}",
+                    'email' => $email,
+                ]);
+            }
+        }
     }
 }
