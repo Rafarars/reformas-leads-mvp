@@ -85,12 +85,10 @@ function Review({
     item,
     categories,
     urgencies,
-    onOpenChange,
 }: {
     item: Classification;
     categories: string[];
     urgencies: string[];
-    onOpenChange?: (open: boolean) => void;
 }) {
     // Parte de lo que propuso la IA: confirmar es un clic, corregir son dos.
     const [category, setCategory] = useState(item.category ?? '');
@@ -99,11 +97,7 @@ function Review({
 
     return (
         <div className="flex flex-wrap items-center gap-2">
-            <Select
-                value={category}
-                onValueChange={setCategory}
-                onOpenChange={onOpenChange}
-            >
+            <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="w-40" data-test={`${test}-category`}>
                     <SelectValue placeholder="Categoría" />
                 </SelectTrigger>
@@ -119,11 +113,7 @@ function Review({
                     ))}
                 </SelectContent>
             </Select>
-            <Select
-                value={urgency}
-                onValueChange={setUrgency}
-                onOpenChange={onOpenChange}
-            >
+            <Select value={urgency} onValueChange={setUrgency}>
                 <SelectTrigger className="w-28" data-test={`${test}-urgency`}>
                     <SelectValue placeholder="Urgencia" />
                 </SelectTrigger>
@@ -191,13 +181,7 @@ function kilobytes(bytes: number): string {
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-function Attachments({
-    item,
-    onOpenChange,
-}: {
-    item: Classification;
-    onOpenChange?: (open: boolean) => void;
-}) {
+function Attachments({ item }: { item: Classification }) {
     const [kind, setKind] = useState<'photo' | 'plan'>('photo');
     const [uploading, setUploading] = useState(false);
     const [dragging, setDragging] = useState(false);
@@ -233,7 +217,6 @@ function Attachments({
                     onValueChange={(value) =>
                         setKind(value as 'photo' | 'plan')
                     }
-                    onOpenChange={onOpenChange}
                 >
                     <SelectTrigger
                         className="h-7 w-24 text-xs"
@@ -408,19 +391,10 @@ export default function ClassificationIndex({
     ).length;
 
     // La IA trabaja en segundo plano: recarga parcial y silenciosa.
-    // El sondeo se pausa mientras haya un desplegable abierto para que no lo desmonte.
-    const { start, stop } = usePoll(POLL_EVERY_MS, {
+    usePoll(POLL_EVERY_MS, {
         only: ['classifications'],
         showProgress: false,
     });
-
-    const onSelectOpenChange = (open: boolean) => {
-        if (open) {
-            stop();
-        } else {
-            start();
-        }
-    };
 
     return (
         <>
@@ -548,12 +522,8 @@ export default function ClassificationIndex({
                                     item={item}
                                     categories={categories}
                                     urgencies={urgencies}
-                                    onOpenChange={onSelectOpenChange}
                                 />
-                                <Attachments
-                                    item={item}
-                                    onOpenChange={onSelectOpenChange}
-                                />
+                                <Attachments item={item} />
                                 <Draft item={item} />
                             </div>
                         </div>

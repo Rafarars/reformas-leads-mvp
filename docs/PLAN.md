@@ -15,39 +15,32 @@ puedan verificar; saltársela deja sin red todo lo demás.
 
 ### 0.1 El enlace muerto del registro
 
-`resources/js/pages/auth/login.tsx:97` pinta siempre un enlace **"Sign up"** hacia `register()`. Esa ruta
-**no existe en producción**: `config/fortify.php:166` solo activa `Features::registration()` si
-`REGISTRATION_ENABLED` o si el entorno no es producción. Resultado: quien pulsa se come un 404.
+`resources/js/pages/auth/login.tsx:97` pintaba siempre un enlace **"Sign up"** hacia `register()`. Esa ruta
+**no existe en producción**: `config/fortify.php` solo activa `Features::registration()` si
+`REGISTRATION_ENABLED` o si el entorno no es producción.
 
-**Cómo:** el mismo patrón que ya usa la página. `login.tsx` recibe `canResetPassword: boolean` y esconde
-el enlace de contraseña con él. Añadir `canRegister` de la misma forma, desde donde se construyan las
-props de esa vista, y envolver el enlace.
-
-**Qué NO hacer:** no borrar el enlace a secas. En local el registro **sí** está abierto y debe seguir
-viéndose.
-
-**Se comprueba:** una prueba E2E que con el registro cerrado no encuentra el enlace, y con el registro
-abierto sí. Las dos direcciones, como manda `AGENTS.md`.
+**Cómo se resolvió:** se hizo condicional a `canRegister`, prop expuesta por `AuthenticatedSessionController`
+según las características activas de Fortify. Verificado en ambos sentidos (con registro activo y desactivado)
+con pruebas de Feature y E2E.
 
 ### 0.2 El enlace muerto de la contraseña
 
-`Features::resetPasswords()` está activo, así que la página muestra **"Forgot your password?"**. Pero
-`render.yaml` **no define ninguna variable `MAIL_*`**: ese correo no sale a ninguna parte.
+`Features::resetPasswords()` estaba activo por defecto, mostrando **"Forgot your password?"** en el login.
+Pero `render.yaml` **no define variables `MAIL_*`**, por lo que en producción el correo de recuperación
+no saldría a ninguna parte.
 
-**Cómo:** apagar esa característica en producción, igual que el registro. El enlace desaparece solo porque
-ya es condicional.
+**Cómo se resolvió:** en `config/fortify.php` se condicionó `Features::resetPasswords()` a que exista un
+mailer real configurado (`config('mail.default') !== 'log' && config('mail.mailers.smtp.host') !== null && !app()->isProduction()`).
+En producción la característica queda inactiva, Fortify no registra la ruta y la prop `canResetPassword` llega
+como `false`, ocultando el enlace de forma limpia sin tocar `login.tsx`.
 
-**Por qué y no configurar el correo:** el único administrador se crea desde `ADMIN_EMAIL` y
-`ADMIN_PASSWORD` al arrancar (`app:admin:ensure`). Recuperar por correo no resuelve nada que no resuelva
-ya cambiar la variable de entorno. Un botón que no hace nada es peor que no tener botón.
+### 0.3 La prueba inestable
 
-### 0.3 La prueba inestable · **léase entero antes de tocar**
+`e2e/tests/ui/reception.spec.ts` y `e2e/tests/ui/classification.spec.ts` fallaban de forma intermitente. El
+registro de Playwright decía que el clic lo recibía `<html class="nprogress-busy">`, y en el reintento que
+el elemento quedaba fuera de la ventana.
 
-`e2e/tests/ui/reception.spec.ts` y `e2e/tests/ui/classification.spec.ts` fallan de forma intermitente. El
-registro de Playwright dice que el clic lo recibe `<html class="nprogress-busy">`, y en el reintento que
-el elemento queda fuera de la ventana.
-
-**Prohibido arreglarlo con `force: true`.** Ya se intentó y se revirtió. Razones:
+**Prohibido arreglarlo con `force: true`.** Razones:
 
 1. `force: true` **salta las comprobaciones de accionabilidad** (visible, habilitado, estable y **no
    tapado**). La prueba deja de comprobar que una persona puede pulsar ahí, pero sigue saliendo verde:
@@ -56,28 +49,33 @@ el elemento queda fuera de la ventana.
 2. También salta el "desplazar hasta que se vea", y uno de los fallos era justo
    `element is outside of the viewport`. Forzar un clic sobre algo que no está en pantalla no lo arregla:
    lo vuelve impredecible.
-3. **La prueba no miente: señala un defecto real de la aplicación** (abajo).
+3. **La prueba no miente: señala defectos reales** de la aplicación y de la infraestructura de pruebas.
 
-**La causa.** `resources/js/pages/classification/index.tsx:394` llama a `usePoll(POLL_EVERY_MS)` con
-`POLL_EVERY_MS = 3000` y sin opciones. Cada 3 segundos hay una visita de Inertia que vuelve a renderizar
-la página. El menú de un `Select` de Radix vive en un **portal**, y ese renderizado lo desmonta y lo
-vuelve a montar: la opción desaparece bajo el cursor y el clic acaba en `<html>`.
+**Nota de verificación y falsación:**
+La hipótesis inicial de que `usePoll(3000)` desmontaba el portal del `Select` de Radix UI cerrándolo
+automáticamente a los 3 segundos resultó **falsa** tras comprobarse empíricamente contra `d74fba1`: la prueba
+con espera de 4 s pasaba tanto con como sin pausa del sondeo. La prueba artificial se descartó y la pausa de
+sondeo en `classification/index.tsx` se eliminó para mantener el código simple.
 
-**Traducido a la persona que usa el panel:** abre el desplegable de urgencia, tarda tres segundos en
-decidir y **el menú se le cierra solo**. Eso pasa hoy, en producción.
+**Causas reales y cómo se resolvieron:**
 
-**Cómo arreglarlo:**
-
-- `usePoll` devuelve controles (`start` / `stop`). **Parar el sondeo mientras haya un `Select` abierto**,
-  enganchando su `onOpenChange`, y reanudarlo al cerrarse.
-- De paso, que el sondeo sea **recarga parcial** (solo la prop de clasificaciones) y **sin barra de
-  progreso**: no tiene por qué llamar la atención cada 3 segundos.
-- Los page objects se quedan **como están**, con clics normales.
-
-**Se comprueba:** una prueba que abre el desplegable, **espera más de 3 segundos** y comprueba que sigue
-abierto. Esa prueba debe **fallar** antes del arreglo. Si no falla antes, el arreglo no vale.
-
-Y después, las dos pruebas de antes **diez veces seguidas** (`--repeat-each=10`), no una.
+- **Interferencia de `nprogress-busy`:** Cada 3 segundos `usePoll` disparaba la barra de progreso global
+  de NProgress, añadiendo la clase `.nprogress-busy` a `<html>` y bloqueando los clics. Se resolvió
+  configurando `showProgress: false` y recarga parcial `only: ['classifications']` en
+  `resources/js/pages/classification/index.tsx` y en `resources/js/pages/resilience/index.tsx`.
+- **Bloqueo de scroll y posicionamiento del desplegable de Radix UI:**
+    1. Al elegir una opción, Radix UI mantiene el bloqueo de scroll del `<body>` hasta que concluye la animación de cierre. Si el siguiente clic se lanza antes, el elemento destino no es interactivo. Se resolvió en el page object esperando explícitamente a que la opción anterior desaparezca del DOM (`await expect(option).not.toBeVisible()`) antes de continuar con la siguiente interacción.
+    2. El menú de un `Select` de Radix se renderiza en un portal y se despliega hacia arriba o hacia abajo según el espacio disponible. Si la tarjeta del lead está cerca del borde inferior de la ventana, el auto-scroll de Playwright solo asoma el trigger en el límite inferior del viewport, lo que provoca que el menú del portal se dibuje fuera de la pantalla (`element is outside of the viewport`). Por ello es necesario `scrollIntoViewIfNeeded()` centrando el elemento (`block: 'center'`) en `ClassificationPage`: garantiza margen suficiente arriba y abajo para que el portal del desplegable quede completamente dentro de la ventana gráfica.
+- **Colisión de sesiones entre workers de Playwright:** Todos los workers compartían el mismo `STORAGE_STATE`
+  (`test@example.com`), consumiendo los mensajes flash de sesión única de Laravel unos antes que otros y
+  activando el rate limiter de Fortify (429 Too Many Requests). Se resolvió aislando la autenticación por
+  worker (`testInfo.parallelIndex`) con credenciales independientes (`test+N@example.com`).
+- **Aislamiento y limpieza hermética de datos:** Los leads creados por las pruebas E2E usan el dominio
+  `@e2e.test`. El comando `php artisan e2e:purge-leads`, invocado en `e2e/global-setup.ts` con `stdio: 'inherit'`,
+  purga en cada ejecución los leads de `@e2e.test` y los de `source = 'demo'` junto con sus mensajes de outbox
+  y adjuntos en disco, preservando intactos los leads reales de desarrollo sin recurrir a `migrate:fresh`.
+- **Guarda de arquitectura en pruebas:** Se impide la importación directa de `test` desde `@playwright/test`
+  en `e2e/tests/**/*.spec.ts` mediante la regla `no-restricted-imports` de Oxlint configurada en `vite.config.ts`.
 
 ---
 

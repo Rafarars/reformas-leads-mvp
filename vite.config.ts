@@ -58,6 +58,26 @@ export default defineConfig({
             denyWarnings: true,
             typeAware: true,
         },
+        overrides: [
+            {
+                files: ['e2e/tests/**/*.spec.ts'],
+                rules: {
+                    'no-restricted-imports': [
+                        'error',
+                        {
+                            paths: [
+                                {
+                                    name: '@playwright/test',
+                                    importNames: ['test'],
+                                    message:
+                                        'Import test from support/test to preserve worker session isolation.',
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+        ],
     },
     fmt: {
         printWidth: 80,

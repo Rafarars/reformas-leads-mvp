@@ -40,8 +40,7 @@ arrancase está encontrada y probada en local.** Todo el detalle en
 Publicar = `git checkout production && git merge main && git push && git checkout main`, **solo con el CI
 de `main` en verde** (Render despliega sin esperar al CI).
 
-> **Siguiente tramo de trabajo: [`PLAN.md`](PLAN.md)** — enlaces muertos del login, la prueba
-> inestable (y por qué **no** se arregla con `force: true`), y los avisos de Telegram por usuario.
+> **Siguiente tramo de trabajo: [`PLAN.md`](PLAN.md)** — Fase 1: avisos de Telegram por usuario. (Fase 0 completada: registro condicional, recuperación de contraseña apagada en prod, sesiones aisladas por worker y sondeo silencioso).
 
 ## Cómo retomar
 
@@ -54,8 +53,8 @@ de `main` en verde** (Render despliega sin esperar al CI).
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `230596a` (`main` y `production`), CI en verde                                                                                    |
-| Pruebas                        | Pest 396 · PHPStan nivel 7 sin errores · Playwright 9                                                                             |
+| Último commit verificado       | `1d0f700` (`main`), CI en verde                                                                                                   |
+| Pruebas                        | Pest 400 · PHPStan nivel 7 sin errores · Playwright 11 (en paralelo, 2 workers)                                                   |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
 | Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                                   |

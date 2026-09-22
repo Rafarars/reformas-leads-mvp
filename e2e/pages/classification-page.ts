@@ -21,8 +21,7 @@ export class ClassificationPage {
         urgency: 'low' | 'medium' | 'high',
     ): Promise<void> {
         const item = this.itemFor(description);
-        await item.scrollIntoViewIfNeeded();
-        await item.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+        await this.centre(item);
         const leadId = await item.getAttribute('data-lead');
         const prefix = `classification-review-${leadId}`;
 
@@ -30,9 +29,7 @@ export class ClassificationPage {
         const categoryOption = this.page.getByTestId(
             `${prefix}-category-${category}`,
         );
-        await categoryTrigger.evaluate((el) =>
-            el.scrollIntoView({ block: 'center' }),
-        );
+        await this.centre(categoryTrigger);
         await categoryTrigger.click();
         await categoryOption.click();
         await expect(categoryOption).not.toBeVisible();
@@ -41,17 +38,13 @@ export class ClassificationPage {
         const urgencyOption = this.page.getByTestId(
             `${prefix}-urgency-${urgency}`,
         );
-        await urgencyTrigger.evaluate((el) =>
-            el.scrollIntoView({ block: 'center' }),
-        );
+        await this.centre(urgencyTrigger);
         await urgencyTrigger.click();
         await urgencyOption.click();
         await expect(urgencyOption).not.toBeVisible();
 
         const submitButton = this.page.getByTestId(`${prefix}-submit`);
-        await submitButton.evaluate((el) =>
-            el.scrollIntoView({ block: 'center' }),
-        );
+        await this.centre(submitButton);
         await submitButton.click();
     }
 
@@ -60,17 +53,13 @@ export class ClassificationPage {
         kind: 'photo' | 'plan',
         file: { name: string; mimeType: string; buffer: Buffer },
     ): Promise<void> {
-        const item = this.itemFor(description);
-        await item.scrollIntoViewIfNeeded();
-        await item.evaluate((el) => el.scrollIntoView({ block: 'center' }));
-        const leadId = await item.getAttribute('data-lead');
+        const leadId =
+            await this.itemFor(description).getAttribute('data-lead');
         const prefix = `classification-attachments-${leadId}`;
 
         const kindTrigger = this.page.getByTestId(`${prefix}-kind`);
         const kindOption = this.page.getByTestId(`${prefix}-kind-${kind}`);
-        await kindTrigger.evaluate((el) =>
-            el.scrollIntoView({ block: 'center' }),
-        );
+        await this.centre(kindTrigger);
         await kindTrigger.click();
         await kindOption.click();
         await expect(kindOption).not.toBeVisible();
@@ -83,5 +72,11 @@ export class ClassificationPage {
         return this.itemFor(description).getByTestId(
             /classification-attachments-.*-link/,
         );
+    }
+
+    // El menú del Select de Radix se abre en un portal, y si el trigger queda pegado al borde
+    // inferior, las opciones caen fuera de la ventana.
+    private async centre(locator: Locator): Promise<void> {
+        await locator.evaluate((el) => el.scrollIntoView({ block: 'center' }));
     }
 }

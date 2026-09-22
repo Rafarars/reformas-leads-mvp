@@ -62,4 +62,9 @@ export default function globalSetup(): void {
         ],
         { stdio: 'ignore' },
     );
+    execFileSync(
+        'docker',
+        ['compose', 'exec', '-T', 'app', 'php', 'artisan', 'e2e:purge-leads'],
+        { stdio: 'inherit' },
+    );
 }
