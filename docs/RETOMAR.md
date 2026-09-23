@@ -2,7 +2,7 @@
 
 Documento de traspaso: lo necesario para continuar **sin depender de ninguna conversación**.
 
-**Actualizado:** 20 de septiembre de 2026
+**Actualizado:** 22 de septiembre de 2026
 
 ## ⚠️ Punto de retorno inmediato: el despliegue
 
@@ -40,7 +40,15 @@ arrancase está encontrada y probada en local.** Todo el detalle en
 Publicar = `git checkout production && git merge main && git push && git checkout main`, **solo con el CI
 de `main` en verde** (Render despliega sin esperar al CI).
 
-> **Siguiente tramo de trabajo: [`PLAN.md`](PLAN.md)** — Fase 1: avisos de Telegram por usuario. (Fase 0 completada: registro condicional, recuperación de contraseña apagada en prod, sesiones aisladas por worker y sondeo silencioso).
+**Fase 0 cerrada y publicada** (`d8abb09`, en `main` y `production`): el enlace de registro solo aparece si
+el registro está abierto, la recuperación de contraseña está apagada en producción, el sondeo del panel es
+silencioso y las pruebas E2E corren en paralelo sin depender del estado de la base.
+
+> **Siguiente tramo de trabajo:**
+>
+> 1. **Rotar `N8N_ENCRYPTION_KEY`** siguiendo [`DEPLOY.md`](DEPLOY.md) §7. Recifrar antes las credenciales:
+>    cambiar solo la variable deja Telegram y Gmail sin poder descifrarse, y el panel no lo detecta.
+> 2. **[`PLAN.md`](PLAN.md) Fase 1**: avisos de Telegram por usuario.
 
 ## Cómo retomar
 
@@ -53,7 +61,7 @@ de `main` en verde** (Render despliega sin esperar al CI).
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `1d0f700` (`main`), CI en verde                                                                                                   |
+| Último commit verificado       | `d8abb09` (`main` y `production`), CI en verde y publicado en Render                                                              |
 | Pruebas                        | Pest 400 · PHPStan nivel 7 sin errores · Playwright 11 (en paralelo, 2 workers)                                                   |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
@@ -107,6 +115,7 @@ de `main` en verde** (Render despliega sin esperar al CI).
     - [x] Bot de Telegram propio del proyecto (`@leads_reformas_mvp_bot`); el `chat_id` no cambia
     - [ ] Revocar el token del bot antiguo (rompe la otra integración hasta actualizarla allí)
     - [ ] Quitar `GMAIL_API_KEY` del `.env` (sobra)
+    - [ ] **Rotar `N8N_ENCRYPTION_KEY`** recifrando las credenciales ([`DEPLOY.md`](DEPLOY.md) §7)
 - [x] **Paso 8 · Fotos y planos** (módulo `src/Leads/Attachment`)
     - [x] Endpoint propio: `POST /api/v1/leads/{lead}/attachments` y subida desde el panel de Clasificación
     - [x] La ruta del archivo la calcula el dominio con identificadores; lista blanca JPG/PNG/WEBP/PDF y 10 MB

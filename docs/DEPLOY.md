@@ -140,6 +140,47 @@ y sus avisos salen en cuanto la cola vuelve a correr. Es el comportamiento que e
 | La API pública            | Revisar `API_REQUESTS_PER_MINUTE`                                                  |
 | Pérdida de datos          | Supabase hace copias; exportar el flujo de n8n al repositorio tras cada cambio     |
 
+## 7. Rotar la clave de cifrado de n8n
+
+`N8N_ENCRYPTION_KEY` es la clave con la que n8n cifra **las credenciales guardadas** (el token del bot de
+Telegram y la autorización de Gmail). Los flujos no van cifrados. Si la clave se filtra, `AGENTS.md` manda
+rotarla, no esconderla.
+
+**Cambiar solo la variable en Render rompe los avisos**: las credenciales siguen cifradas con la clave
+vieja y n8n ya no puede leerlas. Como el panel solo mira `/healthz`, el servicio se vería sano mientras
+Telegram y Gmail dejan de salir. Hay que **recifrarlas**, y para eso se necesitan las dos claves.
+
+Se hace desde una máquina con memoria, contra la misma base de Supabase, con el n8n de Render corriendo
+como está (no hace falta pararlo; el corte dura lo que tarde el paso 4).
+
+1. **Exportar las credenciales descifradas con la clave vieja.** El archivo sale en claro: se guarda
+   fuera del repositorio y se borra en el paso 5.
+
+    ```bash
+    mkdir -p ~/n8n-rotacion && cd ~/n8n-rotacion
+    docker run --rm -v "$PWD:/backup" \
+      -e DB_TYPE=postgresdb -e DB_POSTGRESDB_HOST=<pooler de Supabase> -e DB_POSTGRESDB_PORT=5432 \
+      -e DB_POSTGRESDB_DATABASE=postgres -e DB_POSTGRESDB_USER=<usuario> -e DB_POSTGRESDB_PASSWORD="$SUPABASE_DB_PASSWORD" \
+      -e DB_POSTGRESDB_SCHEMA=n8n -e DB_POSTGRESDB_SSL_ENABLED=true -e DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED=false \
+      -e N8N_ENCRYPTION_KEY="$CLAVE_VIEJA" \
+      n8nio/n8n:2.38.7 export:credentials --all --decrypted --output=/backup/credenciales.json
+    ```
+
+2. **Generar la clave nueva**: `openssl rand -hex 32`. No se pega en ningún chat.
+
+3. **Importar con la clave nueva**, que las vuelve a cifrar en la misma base: el mismo `docker run`, con
+   `N8N_ENCRYPTION_KEY="$CLAVE_NUEVA"` y `import:credentials --input=/backup/credenciales.json`.
+
+4. **Poner la clave nueva en Render** (`reformas-n8n` → Environment → `N8N_ENCRYPTION_KEY`) y en el `.env`
+   local (`RENDER_N8N_ENCRYPTION_KEY`, que solo usa el contenedor temporal). Render reinicia el servicio.
+
+5. **Borrar el archivo en claro**: `shred -u ~/n8n-rotacion/credenciales.json`.
+
+6. **Comprobar de punta a punta**, que es lo único que demuestra que el recifrado salió bien:
+   `https://<n8n en Render>/healthz` → 200, registrar un lead y ver el aviso en Telegram, y aprobar un
+   borrador y ver llegar el correo. Si algo falla, las credenciales se rehacen a mano desde el n8n local
+   contra la misma base, como en el paso 3 de la sección 3.
+
 ---
 
 # Alternativa: servidor propio
