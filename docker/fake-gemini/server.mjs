@@ -7,10 +7,9 @@ const port = Number(process.env.PORT ?? 8080);
 const validCategories = new Set([
     'bathroom',
     'kitchen',
-    'comprehensive',
-    'paint',
-    'installations',
+    'full_home',
     'facade',
+    'installations',
     'other',
 ]);
 
