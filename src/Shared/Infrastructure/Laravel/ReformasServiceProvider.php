@@ -39,6 +39,10 @@ use Reformas\Leads\Classification\Infrastructure\Queue\ClassifyLeadJob;
 use Reformas\Leads\Classification\Infrastructure\Queue\LaravelClassificationQueue;
 use Reformas\Leads\Lead\Domain\LeadRepository;
 use Reformas\Leads\Lead\Infrastructure\Persistence\Eloquent\EloquentLeadRepository;
+use Reformas\Notifications\TelegramLink\Domain\LinkTokenGenerator;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLinkRepository;
+use Reformas\Notifications\TelegramLink\Infrastructure\Persistence\Eloquent\EloquentTelegramLinkRepository;
+use Reformas\Notifications\TelegramLink\Infrastructure\RandomLinkTokenGenerator;
 use Reformas\Shared\Domain\Clock;
 use Reformas\Shared\Domain\EventBus;
 use Reformas\Shared\Domain\Random;
@@ -68,6 +72,8 @@ final class ReformasServiceProvider extends ServiceProvider
         LeadClassificationRepository::class => EloquentLeadClassificationRepository::class,
         ClassificationQueue::class => LaravelClassificationQueue::class,
         AttachmentRepository::class => EloquentAttachmentRepository::class,
+        TelegramLinkRepository::class => EloquentTelegramLinkRepository::class,
+        LinkTokenGenerator::class => RandomLinkTokenGenerator::class,
     ];
 
     public function register(): void
