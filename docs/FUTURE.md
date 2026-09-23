@@ -22,6 +22,23 @@ pero nada se pierde por no escribirlo.
 revisadas por Meta. Hay número de prueba gratuito para una demo. No usar librerías no
 oficiales: violan los términos y pueden bloquear el número.
 
+## Resend y el remitente del correo al cliente
+
+**Qué:** enviar el correo de seguimiento con Resend en vez de con la cuenta de Gmail, y que al
+responder el cliente le conteste **al usuario que aprobó el borrador** (`Reply-To`).
+
+**Por qué no ahora:** Resend exige un **dominio propio verificado por DNS**; sin él solo deja
+enviar a la dirección de la propia cuenta. Su plan gratuito da 3.000 correos al mes con tope de
+100 al día y hasta 3 dominios. Comprar un dominio es el único coste del proyecto, y hoy no lo hay.
+
+**Lo que NO se puede hacer, aunque se pida:** enviar _desde_ el correo del usuario que ha
+iniciado sesión (`pepe@gmail.com`). Eso exigiría firmar con los DNS de `gmail.com`: es
+suplantación, y SPF y DKIM la mandan a spam o la rechazan. El remitente siempre es un dominio
+propio; lo que cambia por usuario es el `Reply-To`.
+
+**Qué sí se puede hacer ya, gratis:** poner `Reply-To` con el correo del usuario en el nodo de
+Gmail. Da el comportamiento que se busca sin infraestructura nueva.
+
 ## Despliegue
 
 **Plan y pasos:** [`docs/DEPLOY.md`](DEPLOY.md), con `compose.prod.yml` ya preparado.
