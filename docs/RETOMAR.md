@@ -61,8 +61,8 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `d8abb09` (`main` y `production`), CI en verde y publicado en Render                                                              |
-| Pruebas                        | Pest 400 · PHPStan nivel 7 sin errores · Playwright 11 (en paralelo, 2 workers)                                                   |
+| Último commit verificado       | `caa74fd` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
+| Pruebas                        | Pest 470 · PHPStan nivel 7 sin errores · Playwright 11 (en paralelo, 2 workers)                                                   |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
 | Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                                   |
@@ -97,6 +97,12 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
     - [x] Probado con Gemini real: detecta "3.000 € para reformar 120 m²" y "marcó cocina, pero es eléctrico"
 
 ### Pendiente
+
+- [x] **Fase 1 · Vincular Telegram por usuario** (`caa74fd`): módulo `src/Notifications/TelegramLink`
+      con token de un solo uso guardado con hash. **Sin interfaz todavía**: la pantalla es la Fase 3 y el
+      endpoint que llama n8n, la Fase 4. Por eso no está publicado en `production`
+- [ ] **Fase 2 · El abanico de entrega**: un mensaje de outbox por destinatario, y el 403 de quien
+      bloquea el bot como fallo permanente, para que no abra el circuito de todo el equipo
 
 - [x] **Paso 7 · Avisos con n8n** (guía en `docs/N8N.md`, historia en `docs/BITACORA.md`)
     - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`)

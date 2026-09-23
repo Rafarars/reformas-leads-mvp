@@ -11,7 +11,7 @@ puedan verificar; saltársela deja sin red todo lo demás.
 
 ---
 
-## Fase 0 · Despejar el terreno
+## Fase 0 · Despejar el terreno — ✅ hecha (`1d0f700`, `d8abb09`, publicada)
 
 ### 0.1 El enlace muerto del registro
 
@@ -79,7 +79,7 @@ sondeo en `classification/index.tsx` se eliminó para mantener el código simple
 
 ---
 
-## Fase 1 · Avisos de Telegram por usuario · dominio
+## Fase 1 · Avisos de Telegram por usuario · dominio — ✅ hecha (`caa74fd`, sin publicar)
 
 **Qué resuelve.** Hoy el aviso de Telegram va a un `chatId` fijo escrito en el nodo. Quien entra al sistema
 no se entera de nada si no es esa persona. Y para enseñarlo, un reclutador no tiene forma de ver el bot
@@ -117,6 +117,13 @@ quien lea la base no puede suplantar un vínculo pendiente.
 **Se comprueba:** dominio sin base de datos; el contrato del puerto **contra el doble en memoria y contra
 Eloquent**, como el resto del proyecto. Cada guarda en los dos sentidos: token caducado rechaza, token
 válido acepta; token ya usado rechaza, token nuevo acepta.
+
+**Lo que se decidió al construirlo** (detalle en `docs/ARCHITECTURE.md`, "Vincular Telegram con cada
+usuario"): `chat_id` con índice **único** y guarda `ChatAlreadyLinkedError` cuando el chat ya es de otro
+usuario, porque si no el abanico de la Fase 2 mandaría **cada lead dos veces al mismo Telegram**; y al
+renovar el token **se conserva el `chat_id` anterior**, para no quedarse sin avisos durante esos 15
+minutos. El módulo todavía **no tiene interfaz ni endpoint**: eso llega en la Fase 3, y por eso no se
+publica en producción.
 
 ---
 

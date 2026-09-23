@@ -58,6 +58,8 @@ src/                                       namespace Reformas\
 │           └── Persistence/Eloquent/
 │               ├── EloquentLeadRepository.php   ADAPTADOR
 │               └── LeadModel.php
+├── Notifications/                         contexto
+│   └── TelegramLink/                      vincular el Telegram de cada usuario (token de un solo uso)
 └── Shared/
     ├── Domain/                            DomainError y sus categorías, puertos comunes
     └── Infrastructure/Laravel/            el cableado: qué adaptador resuelve cada puerto
@@ -343,6 +345,34 @@ POST /api/v1/leads/{lead}/attachments   (o desde el panel, con sesión)
 | **Disco privado** y descarga por una ruta con sesión  | Los archivos no se sirven solos desde el navegador                                        |
 | **Borrado explícito** si la transacción falla         | El sistema de archivos no tiene rollback: sin esto quedan archivos huérfanos              |
 | Límite de **10 MB** en el dominio y en la validación  | Rechazar pronto, y que la regla viva en el dominio aunque cambie la puerta de entrada     |
+
+## Vincular Telegram con cada usuario
+
+Contexto `src/Notifications/TelegramLink`. La pregunta que responde: _¿cómo sabe el sistema que el
+Telegram que pulsó **Start** es el de la persona que tiene la sesión abierta?_
+
+Telegram da un `chat_id`; la aplicación tiene una sesión. Nada los une, y un bot **no puede escribir
+primero** (regla antispam: la persona tiene que iniciar la conversación). Lo resuelve un token de un solo
+uso, que solo pudo salir de una sesión ya autenticada:
+
+```
+Panel con sesión  ─► RequestLink ─► token en claro (64 hex) ─► t.me/<bot>?start=<token>
+                         │                                            │
+                  en la base: SOLO el hash                     Telegram entrega /start <token>
+                                                                      │
+                                                     CompleteLink ◄────┘  ata chat_id ↔ usuario
+                                                     y quema el token (token_used_at)
+```
+
+| Decisión                                                    | Por qué                                                                                    |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| La identidad la aporta **el token**, no Telegram            | Telegram solo añade el `chat_id`; quién es esa persona ya lo dijo la sesión                |
+| En la base vive **solo el hash** del token                  | Igual que la API key por origen: quien lea la base no puede suplantar un vínculo pendiente |
+| Token de **64 caracteres hex**, sin prefijo                 | Es el máximo exacto que admite el payload de `/start`; un prefijo ya no cabría             |
+| **Caduca a los 15 minutos** y se quema al usarse            | Un enlace que caiga en un grupo o en un registro no sirve al día siguiente                 |
+| `chat_id` con índice **único**, y guarda en el caso de uso  | Sin esto, dos cuentas con el mismo Telegram recibirían **cada lead por duplicado**         |
+| Al renovar el token **se conserva el `chat_id` anterior**   | Quien ya estaba conectado sigue recibiendo avisos durante los 15 minutos de la renovación  |
+| `ListRecipients` devuelve solo los **vínculos completados** | Un token pendiente no es un destinatario                                                   |
 
 ## Herramientas de la demo
 
