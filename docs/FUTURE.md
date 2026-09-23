@@ -39,6 +39,27 @@ propio; lo que cambia por usuario es el `Reply-To`.
 **Qué sí se puede hacer ya, gratis:** poner `Reply-To` con el correo del usuario en el nodo de
 Gmail. Da el comportamiento que se busca sin infraestructura nueva.
 
+## QR para conectar el Telegram desde el móvil
+
+**Qué:** junto al enlace `t.me/<bot>?start=<token>` de Ajustes → Telegram, pintar su QR, para
+conectarse escaneando desde el teléfono en vez de copiar el enlace.
+
+**Por qué no ahora:** exige una dependencia nueva solo para eso. El enlace con su botón de copiar
+ya resuelve el caso, y en el móvil abre Telegram directamente.
+
+## Que el lead aparezca aunque la IA esté caída
+
+**Qué:** al recibir un lead, dejarlo visible en la bandeja al instante como pendiente de
+clasificar, y que la clasificación lo enriquezca después.
+
+**Por qué:** hoy, si el modelo va lento o falla, el lead **no aparece hasta que se agotan los cinco
+reintentos**: unos nueve minutos. Contradice la tesis del proyecto, que es no perder ni retrasar un
+lead aunque un servicio externo caiga. Se descubrió midiendo la API real (43 s por llamada, y
+llamadas sin respuesta a los 60 s) mientras se investigaba por qué fallaban las pruebas end to end.
+
+**Cuidado al hacerlo:** el estado nuevo no puede confundirse con `needs_review`, que significa que la
+IA respondió y pide criterio humano.
+
 ## Despliegue
 
 **Plan y pasos:** [`docs/DEPLOY.md`](DEPLOY.md), con `compose.prod.yml` ya preparado.

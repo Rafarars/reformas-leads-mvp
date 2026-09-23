@@ -171,9 +171,9 @@ simulado. Detalle en `docs/ARCHITECTURE.md`, "Herramientas de la demo".
 
 ---
 
-## Fase 3 · Pantalla para conectarse
+## Fase 3 · Pantalla para conectarse — ✅ hecha (`4ff6354`, sin publicar)
 
-En Ajustes: **Conectar Telegram** (muestra el enlace y un QR), **Desconectar**, y el estado (conectado
+En Ajustes: **Conectar Telegram** (muestra el enlace; el QR se aplazó, ver `docs/FUTURE.md`), **Desconectar**, y el estado (conectado
 desde cuándo). `data-test` sembrados al escribir el componente, y Page Object: ningún `.spec.ts` conoce un
 selector.
 

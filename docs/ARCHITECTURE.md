@@ -395,6 +395,21 @@ Panel con sesión  ─► RequestLink ─► token en claro (64 hex) ─► t.me
 | Al renovar el token **se conserva el `chat_id` anterior**   | Quien ya estaba conectado sigue recibiendo avisos durante los 15 minutos de la renovación  |
 | `ListRecipients` devuelve solo los **vínculos completados** | Un token pendiente no es un destinatario                                                   |
 
+**La puerta: Ajustes → Telegram.** Tres controladores, uno por acción, sobre los casos de uso que ya
+existían. El enlace lo pulsa la persona desde su sesión; el bot confirma llamando a
+`POST /api/v1/telegram/link`, dentro del mismo grupo con **API key por origen**, límite e idempotencia
+que usa el alta de leads.
+
+**El token en claro no se guarda en ningún sitio.** Viaja **una sola vez**, como dato flash de la
+redirección, y la pantalla lo mantiene en memoria. Si se recarga, desaparece: se vuelve a pedir, y eso
+renueva el token sin perder el chat ya vinculado. Lo que **sí** sobrevive a la recarga es el estado
+("pendiente", "conectado desde"), porque sale de la entidad, no de la sesión. Queda un residuo
+inevitable: el dato flash vive en la sesión **durante una petición**, segundos, no los 15 minutos que
+duraría si se guardara. Es el precio de redirigir después de un POST.
+
+**El nombre del bot es configuración** (`TELEGRAM_BOT_USERNAME`), nunca un valor escrito en el código: si
+falta, la pantalla lo dice en vez de pintar un enlace que no lleva a ninguna parte.
+
 ## Herramientas de la demo
 
 El CRM simulado (`docker/fake-crm`), su cliente (`app/Services/FakeCrmClient`) y los leads de

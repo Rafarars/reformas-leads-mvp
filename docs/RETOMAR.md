@@ -61,8 +61,8 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `91f9d1b` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
-| Pruebas                        | Pest 481 · PHPStan nivel 7 sin errores · Playwright 11 (en paralelo, 2 workers, con la IA simulada)                               |
+| Último commit verificado       | `4ff6354` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
+| Pruebas                        | Pest 496 · PHPStan nivel 7 sin errores · Playwright 13 (en paralelo, 2 workers, con la IA simulada)                               |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
 | Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                                   |
@@ -106,9 +106,12 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
       sin abrir el circuito del equipo. El panel avisa cuando no hay nadie conectado
 - [x] **IA simulada en local y CI** (`7f4395d`): las E2E ya no dependen de la API real de Gemini ni
       gastan su cuota. Interruptor `GEMINI_BASE_URL` en `docker-compose.yml`
-- [ ] **Fase 3 · Pantalla para conectarse** y **Fase 4 · n8n**: hasta que estén, la Fase 2 **no se
-      publica**, porque sin nadie vinculado no se crea ningún aviso de equipo y Rafael se quedaría sin
-      Telegram
+- [x] **Fase 3 · Pantalla para conectarse** (`4ff6354`): Ajustes → Telegram, con el enlace de un solo
+      uso, el estado y el botón de desconectar, más `POST /api/v1/telegram/link` para el bot
+- [ ] **Fase 4 · n8n** (la hace Rafael a mano): flujo con `Telegram Trigger` que escuche `/start`,
+      `chatId` por expresión en vez de fijo, y **responder 422** cuando Telegram diga que el chat no
+      existe o que bloquearon al bot. Hasta que esté, **nada de esto se publica**: sin nadie vinculado
+      no se crea ningún aviso de equipo y Rafael se quedaría sin Telegram
 
 - [x] **Paso 7 · Avisos con n8n** (guía en `docs/N8N.md`, historia en `docs/BITACORA.md`)
     - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`)
