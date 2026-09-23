@@ -61,8 +61,8 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `caa74fd` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
-| Pruebas                        | Pest 470 · PHPStan nivel 7 sin errores · Playwright 11 (en paralelo, 2 workers)                                                   |
+| Último commit verificado       | `91f9d1b` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
+| Pruebas                        | Pest 481 · PHPStan nivel 7 sin errores · Playwright 11 (en paralelo, 2 workers, con la IA simulada)                               |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
 | Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                                   |
@@ -101,8 +101,14 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 - [x] **Fase 1 · Vincular Telegram por usuario** (`caa74fd`): módulo `src/Notifications/TelegramLink`
       con token de un solo uso guardado con hash. **Sin interfaz todavía**: la pantalla es la Fase 3 y el
       endpoint que llama n8n, la Fase 4. Por eso no está publicado en `production`
-- [ ] **Fase 2 · El abanico de entrega**: un mensaje de outbox por destinatario, y el 403 de quien
-      bloquea el bot como fallo permanente, para que no abra el circuito de todo el equipo
+- [x] **Fase 2 · El abanico de entrega** (`91f9d1b`): un mensaje de outbox por destinatario, marcado
+      con `fan_out` en la configuración, y el **HTTP 422** de n8n como fallo permanente que va a la DLQ
+      sin abrir el circuito del equipo. El panel avisa cuando no hay nadie conectado
+- [x] **IA simulada en local y CI** (`7f4395d`): las E2E ya no dependen de la API real de Gemini ni
+      gastan su cuota. Interruptor `GEMINI_BASE_URL` en `docker-compose.yml`
+- [ ] **Fase 3 · Pantalla para conectarse** y **Fase 4 · n8n**: hasta que estén, la Fase 2 **no se
+      publica**, porque sin nadie vinculado no se crea ningún aviso de equipo y Rafael se quedaría sin
+      Telegram
 
 - [x] **Paso 7 · Avisos con n8n** (guía en `docs/N8N.md`, historia en `docs/BITACORA.md`)
     - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`)

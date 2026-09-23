@@ -127,7 +127,7 @@ publica en producción.
 
 ---
 
-## Fase 2 · El abanico de entrega · **la decisión de diseño**
+## Fase 2 · El abanico de entrega · **la decisión de diseño** — ✅ hecha (`91f9d1b`, sin publicar)
 
 Hoy `lead.classified` genera **un** mensaje de outbox para el destino `team`
 (`src/Delivery/Outbox/Infrastructure/OutboxEventBus.php`). Con varios destinatarios hay dos caminos:
@@ -156,6 +156,18 @@ para el circuito**. Es el mismo criterio que ya usa el clasificador (4xx≠408/4
 
 **Se comprueba:** con dos destinatarios y uno que falla de forma permanente, el otro recibe, el circuito
 **no** se abre y el fallido acaba en la DLQ.
+
+**Lo que se decidió al construirlo:** el abanico se marca en `config/services.php` (`'fan_out' => true`),
+no con el destino escrito en el código. Y **solo el HTTP 422 es permanente**: el plan hablaba del 403 de
+Telegram, pero Laravel no habla con Telegram, habla con el webhook de n8n y solo ve lo que n8n responde.
+Tratar todo 4xx como permanente habría roto algo ya demostrado: los avisos que se acumulan con 404
+mientras el flujo no está publicado y se entregan solos al publicarlo. En la Fase 4 hay que configurar
+n8n para que responda 422 cuando Telegram diga que el chat no existe o que bloquearon al bot.
+
+**De paso salió otra cosa:** las pruebas E2E dependían de la API real de Gemini, que ese día tardaba 43 s
+por llamada y dejaba llamadas sin responder a los 60 s, además de gastar la cuota gratuita. Se sustituyó
+por una IA simulada en el compose (`docker/fake-gemini`, commit `7f4395d`), con el mismo patrón que el CRM
+simulado. Detalle en `docs/ARCHITECTURE.md`, "Herramientas de la demo".
 
 ---
 

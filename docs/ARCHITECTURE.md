@@ -291,6 +291,27 @@ Si Gmail cae, Telegram y el CRM siguen recibiendo. La alternativa descartada (to
 reenvíe) hacía reintentar todo ante el fallo de un solo destino y duplicaba avisos. Detalle en
 `docs/BITACORA.md`.
 
+**El abanico: un mensaje por destinatario.** Un destino puede repartir por persona en vez de tener un
+único receptor. Se marca en la configuración (`'fan_out' => true` en `config/services.php`), no en el
+código, y hoy solo lo usa `team`: `OutboxEventBus` pide los destinatarios al puerto
+`NotificationRecipients` y crea **un `OutboxMessage` por cada `chat_id`**, con el chat dentro del cuerpo.
+
+| Decisión                                                           | Por qué                                                                                                |
+| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| Un mensaje **por destinatario**, no una lista dentro de un mensaje | Un reintento con lista dentro reenvía a todos y **duplica avisos**; así solo se reintenta el que falló |
+| El adaptador es quien conoce `Notifications`                       | El dominio de `Delivery` no sabe que existe Telegram; la dependencia vive solo en la infraestructura   |
+| **Sin destinatarios, ningún mensaje** — pero visible               | El panel de Resiliencia muestra cuántos hay conectados y avisa cuando son 0: nunca en silencio         |
+
+**Fallo permanente: a la DLQ, sin tocar el circuito.** Si alguien bloquea el bot, ese destinatario
+falla siempre. Con el circuito por destino, ese usuario roto dejaría **sin avisos a todo el equipo**.
+Por eso `DeliveryResult` tiene un tercer estado, `failedPermanently`: el mensaje se aparta con su motivo
+y **no cuenta para el circuito**.
+
+Qué es permanente lo decide `WebhookMessageDeliverer`, y **solo el HTTP 422** lo es: es el código con el
+que n8n responde cuando Telegram dice que el chat no existe o que bloqueó al bot. Un **404 sigue siendo
+reintentable**, porque significa que el flujo de n8n aún no está publicado; se demostró en su día que
+esos avisos se entregan solos en cuanto alguien lo publica.
+
 **Un reintento manual abre una ventana nueva.** El plazo de 24 h se cuenta desde el último
 reintento manual; si se contara desde la creación, un mensaje viejo reprocesado a mano se volvería a
 apartar al primer fallo.
@@ -379,3 +400,17 @@ Panel con sesión  ─► RequestLink ─► token en claro (64 hex) ─► t.me
 El CRM simulado (`docker/fake-crm`), su cliente (`app/Services/FakeCrmClient`) y los leads de
 demostración (`app/Support/DemoLeads`) **no son producto**: viven fuera de `src/` y el dominio no los
 conoce. Los leads de demostración son siempre ficticios y llevan el origen `demo`.
+
+La **IA simulada** (`docker/fake-gemini`) sigue el mismo patrón: responde al instante con la forma que
+espera `GeminiLeadClassifier`. En local y en el CI se usa ella, porque una prueba tiene que comprobar
+este sistema y no la latencia de Google: las corridas dependían de que la API externa fuese rápida (se
+midieron 43 s por llamada, y llamadas sin respuesta a los 60 s) y **gastaban la cuota gratuita diaria**,
+porque cada reintento del trabajo es otra petición. El interruptor está en `docker-compose.yml`:
+
+```yaml
+GEMINI_BASE_URL: ${GEMINI_BASE_URL:-http://fake-gemini:8080/v1beta}
+```
+
+Por defecto, la simulada. Para usar la real en local basta con definir `GEMINI_BASE_URL` y la clave
+verdadera en el `.env` y levantar de nuevo. **Producción llama siempre a Google**: `render.yaml` no
+define esa variable, así que rige el valor por defecto de `config/services.php`.
