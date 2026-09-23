@@ -95,4 +95,9 @@ return [
         ],
     ],
 
+    // Bot de Telegram para vincular cuentas y recibir avisos.
+    'telegram' => [
+        'bot_username' => env('TELEGRAM_BOT_USERNAME'),
+    ],
+
 ];
