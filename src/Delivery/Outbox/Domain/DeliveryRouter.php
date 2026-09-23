@@ -14,4 +14,6 @@ interface DeliveryRouter
      * @return list<string>
      */
     public function destinations(): array;
+
+    public function isFanOut(string $destination): bool;
 }

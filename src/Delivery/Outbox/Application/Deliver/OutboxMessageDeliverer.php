@@ -54,6 +54,16 @@ final readonly class OutboxMessageDeliverer
             return DeliveryOutcome::delivered();
         }
 
+        // Un fallo permanente (bot bloqueado o chat inexistente) va directo a la DLQ y no cuenta
+        // para el circuito de todo el equipo: aislar el fallo en el usuario roto evita bloquear a los demás.
+        if ($result->isPermanent) {
+            $reason = 'Fallo permanente: '.(string) $result->failureReason;
+            $message->markDead($reason);
+            $this->outbox->save($message);
+
+            return DeliveryOutcome::gaveUp();
+        }
+
         $this->circuitBreaker->recordFailure($destination, $now);
         $reason = (string) $result->failureReason;
 

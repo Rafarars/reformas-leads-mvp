@@ -12,6 +12,11 @@ use Reformas\Delivery\Outbox\Domain\OutboxMessage;
 use Reformas\Delivery\Outbox\Domain\OutboxMessageId;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
 use Reformas\Delivery\Outbox\Infrastructure\Queue\DeliverOutboxMessageJob;
+use Reformas\Notifications\TelegramLink\Domain\LinkTokenHash;
+use Reformas\Notifications\TelegramLink\Domain\TelegramChatId;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLink;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLinkId;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLinkRepository;
 
 uses(RefreshDatabase::class);
 
@@ -134,4 +139,36 @@ it('refuses to replay a message that is not set aside', function () {
         ->assertSessionHasErrors(['replay' => 'Solo se pueden reintentar los mensajes apartados.']);
 
     Queue::assertNothingPushed();
+});
+
+it('reports zero connected telegram recipients when nobody is linked', function () {
+    Http::fake(['crm.test/control' => Http::response(null, 200)]);
+
+    $this->actingAs($this->user)
+        ->get(route('resilience'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('delivery.recipients.team', 0));
+});
+
+it('reports connected telegram recipients when a user links telegram', function () {
+    Http::fake(['crm.test/control' => Http::response(null, 200)]);
+
+    $linkRepo = app(TelegramLinkRepository::class);
+    $now = new DateTimeImmutable;
+    $link = TelegramLink::request(
+        new TelegramLinkId('00000000-0000-7000-8000-000000000001'),
+        $this->user->id,
+        new LinkTokenHash(hash('sha256', 'tok')),
+        $now->modify('+15 minutes'),
+        $now,
+    );
+    $link->complete(new TelegramChatId('123456789'), $now);
+    $linkRepo->save($link);
+
+    $this->actingAs($this->user)
+        ->get(route('resilience'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('delivery.recipients.team', 1));
 });

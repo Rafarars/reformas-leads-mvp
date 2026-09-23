@@ -8,8 +8,12 @@ final readonly class ConfigDeliveryRouter implements DeliveryRouter
 {
     /**
      * @param  array<string, list<string>>  $eventsByDestination
+     * @param  list<string>  $fanOutDestinations
      */
-    public function __construct(private array $eventsByDestination) {}
+    public function __construct(
+        private array $eventsByDestination,
+        private array $fanOutDestinations = [],
+    ) {}
 
     public function destinationsFor(string $eventName): array
     {
@@ -27,5 +31,10 @@ final readonly class ConfigDeliveryRouter implements DeliveryRouter
     public function destinations(): array
     {
         return array_keys($this->eventsByDestination);
+    }
+
+    public function isFanOut(string $destination): bool
+    {
+        return in_array($destination, $this->fanOutDestinations, true);
     }
 }

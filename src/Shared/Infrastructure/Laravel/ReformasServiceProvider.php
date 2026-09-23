@@ -12,6 +12,7 @@ use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
 use Reformas\Delivery\Outbox\Domain\DeliveryQueue;
 use Reformas\Delivery\Outbox\Domain\DeliveryRouter;
 use Reformas\Delivery\Outbox\Domain\MessageDeliverer;
+use Reformas\Delivery\Outbox\Domain\NotificationRecipients;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
 use Reformas\Delivery\Outbox\Domain\RetryPolicy;
 use Reformas\Delivery\Outbox\Infrastructure\Cache\CacheCircuitBreakerStore;
@@ -20,6 +21,7 @@ use Reformas\Delivery\Outbox\Infrastructure\Http\WebhookMessageDeliverer;
 use Reformas\Delivery\Outbox\Infrastructure\OutboxEventBus;
 use Reformas\Delivery\Outbox\Infrastructure\Persistence\Eloquent\EloquentOutboxRepository;
 use Reformas\Delivery\Outbox\Infrastructure\Queue\LaravelDeliveryQueue;
+use Reformas\Delivery\Outbox\Infrastructure\TelegramNotificationRecipients;
 use Reformas\Integrations\ApiClient\Domain\ApiClientRepository;
 use Reformas\Integrations\ApiClient\Domain\ApiKeyGenerator;
 use Reformas\Integrations\ApiClient\Infrastructure\Persistence\Eloquent\EloquentApiClientRepository;
@@ -74,6 +76,7 @@ final class ReformasServiceProvider extends ServiceProvider
         AttachmentRepository::class => EloquentAttachmentRepository::class,
         TelegramLinkRepository::class => EloquentTelegramLinkRepository::class,
         LinkTokenGenerator::class => RandomLinkTokenGenerator::class,
+        NotificationRecipients::class => TelegramNotificationRecipients::class,
     ];
 
     public function register(): void
@@ -113,9 +116,21 @@ final class ReformasServiceProvider extends ServiceProvider
             config()->integer('services.delivery.timeout_seconds'),
         ));
 
-        $this->app->bind(DeliveryRouter::class, fn (): DeliveryRouter => new ConfigDeliveryRouter(
-            array_map(static fn (array $destination): array => array_values(array_filter((array) ($destination['events'] ?? []), is_string(...))), $this->deliveryDestinations()),
-        ));
+        $this->app->bind(DeliveryRouter::class, function (): DeliveryRouter {
+            $destinations = $this->deliveryDestinations();
+
+            $eventsByDestination = array_map(
+                static fn (array $destination): array => array_values(array_filter((array) ($destination['events'] ?? []), is_string(...))),
+                $destinations,
+            );
+
+            $fanOutDestinations = array_keys(array_filter(
+                $destinations,
+                static fn (array $destination): bool => ($destination['fan_out'] ?? false) === true,
+            ));
+
+            return new ConfigDeliveryRouter($eventsByDestination, $fanOutDestinations);
+        });
 
         $this->app->bind(RetryPolicy::class, fn (Application $app): RetryPolicy => new RetryPolicy(
             $app->make(Random::class),

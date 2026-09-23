@@ -43,8 +43,16 @@ final readonly class WebhookMessageDeliverer implements MessageDeliverer
             return DeliveryResult::failed('Sin conexión con el destino: '.$exception->getMessage());
         }
 
-        return $response->successful()
-            ? DeliveryResult::succeeded()
-            : DeliveryResult::failed('El destino respondió HTTP '.$response->status());
+        if ($response->successful()) {
+            return DeliveryResult::succeeded();
+        }
+
+        // Solo 422 es fallo permanente (bot bloqueado o chat no encontrado en n8n).
+        // Los 404 (flujo sin publicar), 5xx y errores de red son transitorios y se reintentan.
+        if ($response->status() === 422) {
+            return DeliveryResult::failedPermanently('El destino respondió HTTP 422');
+        }
+
+        return DeliveryResult::failed('El destino respondió HTTP '.$response->status());
     }
 }

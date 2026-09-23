@@ -38,7 +38,28 @@ it('reports an error response as a failed delivery', function () {
     $result = (new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads'], 5))->deliver(webhookMessage());
 
     expect($result->succeeded)->toBeFalse()
+        ->and($result->isPermanent)->toBeFalse()
         ->and($result->failureReason)->toBe('El destino respondió HTTP 503');
+});
+
+it('reports an HTTP 422 response as a permanent failure', function () {
+    Http::fake(['crm.test/*' => Http::response(null, 422)]);
+
+    $result = (new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads'], 5))->deliver(webhookMessage());
+
+    expect($result->succeeded)->toBeFalse()
+        ->and($result->isPermanent)->toBeTrue()
+        ->and($result->failureReason)->toBe('El destino respondió HTTP 422');
+});
+
+it('keeps an HTTP 404 response as a retryable failure so unreleased workflows recover', function () {
+    Http::fake(['crm.test/*' => Http::response(null, 404)]);
+
+    $result = (new WebhookMessageDeliverer(['crm' => 'https://crm.test/webhooks/leads'], 5))->deliver(webhookMessage());
+
+    expect($result->succeeded)->toBeFalse()
+        ->and($result->isPermanent)->toBeFalse()
+        ->and($result->failureReason)->toBe('El destino respondió HTTP 404');
 });
 
 it('reports a connection problem as a failed delivery instead of throwing', function () {

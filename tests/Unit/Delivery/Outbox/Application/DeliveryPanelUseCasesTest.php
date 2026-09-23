@@ -11,6 +11,7 @@ use Reformas\Delivery\Outbox\Domain\OutboxMessageNotFoundError;
 use Reformas\Delivery\Outbox\Infrastructure\ConfigDeliveryRouter;
 use Reformas\Delivery\Outbox\Infrastructure\InMemory\InMemoryCircuitBreakerStore;
 use Reformas\Delivery\Outbox\Infrastructure\Persistence\InMemory\InMemoryOutboxRepository;
+use Tests\Unit\Delivery\Outbox\FixedNotificationRecipients;
 use Tests\Unit\Delivery\Outbox\SpyDeliveryQueue;
 use Tests\Unit\Shared\FixedClock;
 
@@ -44,7 +45,15 @@ it('summarizes the outbox and the circuit breaker for the panel', function () {
     $this->breaker->recordFailure('crm', $this->clock->now());
     $this->breaker->recordFailure('crm', $this->clock->now());
 
-    $status = (new DeliveryStatusSearcher($this->outbox, $this->breaker, $this->breakerStore, new ConfigDeliveryRouter(['crm' => ['lead.received'], 'team' => ['lead.classified']]), $this->clock))()->toArray();
+    $recipients = new FixedNotificationRecipients(['team' => ['111111', '222222']]);
+    $status = (new DeliveryStatusSearcher(
+        $this->outbox,
+        $this->breaker,
+        $this->breakerStore,
+        new ConfigDeliveryRouter(['crm' => ['lead.received'], 'team' => ['lead.classified']], ['team']),
+        $this->clock,
+        $recipients,
+    ))()->toArray();
 
     expect($status['counts'])->toBe(['pending' => 1, 'delivered' => 0, 'dead' => 1])
         ->and($status['circuits'])->toBe([
@@ -53,7 +62,8 @@ it('summarizes the outbox and the circuit breaker for the panel', function () {
             ['destination' => 'team', 'open' => false, 'open_until' => null, 'consecutive_failures' => 0],
         ])
         ->and(array_column($status['messages'], 'lead_name'))->toBe(['Luis Martínez', 'Ana García'])
-        ->and($status['messages'][0]['last_error'])->toBe('El destino respondió HTTP 500');
+        ->and($status['messages'][0]['last_error'])->toBe('El destino respondió HTTP 500')
+        ->and($status['recipients'])->toBe(['team' => 2]);
 });
 
 it('replays a message that was set aside and queues its delivery', function () {

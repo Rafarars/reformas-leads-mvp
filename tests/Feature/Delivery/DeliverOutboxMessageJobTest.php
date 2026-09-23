@@ -60,3 +60,12 @@ it('sets the message aside with the error when the job keeps crashing', function
     expect(storedJobMessage()['status'])->toBe('dead')
         ->and(storedJobMessage()['last_error'])->toContain('Fallo inesperado');
 });
+
+it('sets the message aside as dead without retrying when the destination fails permanently with HTTP 422', function () {
+    Http::fake(['crm.test/*' => Http::response(null, 422)]);
+
+    runDeliveryJob()->assertNotReleased();
+
+    expect(storedJobMessage()['status'])->toBe('dead')
+        ->and(storedJobMessage()['last_error'])->toBe('Fallo permanente: El destino respondió HTTP 422');
+});

@@ -6,6 +6,7 @@ use DateTimeInterface;
 use Reformas\Delivery\Outbox\Domain\CircuitBreaker;
 use Reformas\Delivery\Outbox\Domain\CircuitBreakerStore;
 use Reformas\Delivery\Outbox\Domain\DeliveryRouter;
+use Reformas\Delivery\Outbox\Domain\NotificationRecipients;
 use Reformas\Delivery\Outbox\Domain\OutboxMessage;
 use Reformas\Delivery\Outbox\Domain\OutboxRepository;
 use Reformas\Shared\Domain\Clock;
@@ -24,14 +25,23 @@ final readonly class DeliveryStatusSearcher
         private CircuitBreakerStore $circuitBreakerStore,
         private DeliveryRouter $router,
         private Clock $clock,
+        private NotificationRecipients $recipients,
     ) {}
 
     public function __invoke(): DeliveryStatusSearcherResponse
     {
+        $recipientsCount = [];
+        foreach ($this->router->destinations() as $destination) {
+            if ($this->router->isFanOut($destination)) {
+                $recipientsCount[$destination] = count($this->recipients->chatIdsFor($destination));
+            }
+        }
+
         return new DeliveryStatusSearcherResponse(
             $this->outbox->countByStatus(),
             array_map($this->circuit(...), $this->router->destinations()),
             array_map($this->summarize(...), $this->outbox->searchLatest(self::LATEST_MESSAGES)),
+            $recipientsCount,
         );
     }
 

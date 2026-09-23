@@ -174,3 +174,39 @@ it('keeps delivering to the other destinations while one of them is down', funct
     expect($deliver(new OutboxMessageDelivererRequest(pendingMessage($this, 3, 'crm')))->type)->toBe(DeliveryOutcomeType::CircuitOpen)
         ->and($deliver(new OutboxMessageDelivererRequest($team))->type)->toBe(DeliveryOutcomeType::Delivered);
 });
+
+it('isolates a permanent failure so the other recipient receives and the circuit stays closed', function () {
+    $msgBroken = pendingMessage($this, 1, 'team');
+    $msgHealthy = pendingMessage($this, 2, 'team');
+
+    $deliverer = new CallbackMessageDeliverer(
+        static fn (OutboxMessage $m): DeliveryResult => $m->id()->value === '00000000-0000-7000-8000-000000000001'
+            ? DeliveryResult::failedPermanently('El destino respondió HTTP 422')
+            : DeliveryResult::succeeded(),
+    );
+
+    $deliver = outboxDeliverer($this, $deliverer);
+
+    $outcomeBroken = $deliver(new OutboxMessageDelivererRequest($msgBroken));
+    $outcomeHealthy = $deliver(new OutboxMessageDelivererRequest($msgHealthy));
+
+    expect($outcomeBroken->type)->toBe(DeliveryOutcomeType::GaveUp)
+        ->and(storedMessage($this, $msgBroken)['status'])->toBe('dead')
+        ->and(storedMessage($this, $msgBroken)['last_error'])->toBe('Fallo permanente: El destino respondió HTTP 422')
+        ->and($outcomeHealthy->type)->toBe(DeliveryOutcomeType::Delivered)
+        ->and(storedMessage($this, $msgHealthy)['status'])->toBe('delivered')
+        // El circuito para 'team' NO se abre ni acumula fallos
+        ->and($this->breakerStore->state('team')->consecutiveFailures)->toBe(0)
+        ->and($deliver(new OutboxMessageDelivererRequest(pendingMessage($this, 3, 'team')))->type)->toBe(DeliveryOutcomeType::Delivered);
+});
+
+it('does not open the circuit across consecutive permanent failures in both directions', function () {
+    $deliverer = new CallbackMessageDeliverer(static fn (): DeliveryResult => DeliveryResult::failedPermanently('HTTP 422'));
+    $ids = array_map(fn (int $n): string => pendingMessage($this, $n, 'team'), range(1, 6));
+
+    $outcomes = array_map(fn (string $id) => outboxDeliverer($this, $deliverer)(new OutboxMessageDelivererRequest($id))->type, $ids);
+
+    // Cinco fallos permanentes van a la DLQ (GaveUp) y el 6º sigue intentándose (no salta CircuitOpen)
+    expect($outcomes)->toBe(array_fill(0, 6, DeliveryOutcomeType::GaveUp))
+        ->and($this->breakerStore->state('team')->consecutiveFailures)->toBe(0);
+});

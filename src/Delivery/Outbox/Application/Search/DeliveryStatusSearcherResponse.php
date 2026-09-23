@@ -24,18 +24,21 @@ final readonly class DeliveryStatusSearcherResponse
      * @param  array{pending: int, delivered: int, dead: int}  $counts
      * @param  list<CircuitSummary>  $circuits
      * @param  list<MessageSummary>  $messages
+     * @param  array<string, int>  $recipients
      */
     public function __construct(
         public array $counts,
         public array $circuits,
         public array $messages,
+        public array $recipients = [],
     ) {}
 
     /**
      * @return array{
      *     counts: array{pending: int, delivered: int, dead: int},
      *     circuits: list<CircuitSummary>,
-     *     messages: list<MessageSummary>
+     *     messages: list<MessageSummary>,
+     *     recipients: array<string, int>
      * }
      */
     public function toArray(): array
@@ -44,6 +47,7 @@ final readonly class DeliveryStatusSearcherResponse
             'counts' => $this->counts,
             'circuits' => $this->circuits,
             'messages' => $this->messages,
+            'recipients' => $this->recipients,
         ];
     }
 }

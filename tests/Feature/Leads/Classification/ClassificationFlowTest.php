@@ -9,6 +9,11 @@ use Inertia\Testing\AssertableInertia as Assert;
 use Reformas\Delivery\Outbox\Infrastructure\Queue\DeliverOutboxMessageJob;
 use Reformas\Leads\Classification\Domain\ClassifierUnavailableException;
 use Reformas\Leads\Classification\Infrastructure\Queue\ClassifyLeadJob;
+use Reformas\Notifications\TelegramLink\Domain\LinkTokenHash;
+use Reformas\Notifications\TelegramLink\Domain\TelegramChatId;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLink;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLinkId;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLinkRepository;
 use Tests\Unit\Leads\Lead\LeadReceiverRequestMother;
 
 uses(RefreshDatabase::class);
@@ -119,6 +124,17 @@ it('rejects a review with values outside the contract', function () {
 });
 
 it('approves the draft from the panel and leaves the notice in the outbox', function () {
+    $now = new DateTimeImmutable;
+    $link = TelegramLink::request(
+        new TelegramLinkId('00000000-0000-7000-8000-000000000001'),
+        $this->user->id,
+        new LinkTokenHash(hash('sha256', 'tok1')),
+        $now->modify('+15 minutes'),
+        $now,
+    );
+    $link->complete(new TelegramChatId('123456789'), $now);
+    app(TelegramLinkRepository::class)->save($link);
+
     Http::fake(['gemini.test/*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => json_encode(['category' => 'bathroom', 'urgency' => 'high', 'confidence' => 0.9, 'reason' => 'Fuga activa.', 'summary' => 'Cambiar el plato de ducha.', 'missing_information' => ['Medidas'], 'contradictions' => [], 'customer_message' => 'Hola {nombre}, gracias.'])]]]]]])]);
     $leadId = receiveLeadFromPanel($this);
     runClassificationJob($leadId);

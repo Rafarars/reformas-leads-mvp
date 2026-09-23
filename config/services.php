@@ -30,6 +30,7 @@ return [
             'team' => [
                 'url' => env('DELIVERY_TEAM_URL'),
                 'events' => ['lead.classified'],
+                'fan_out' => true,
             ],
             // Mensaje al cliente (n8n → Gmail), solo tras la aprobación de una persona.
             'customer' => [

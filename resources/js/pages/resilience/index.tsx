@@ -33,6 +33,7 @@ type Delivery = {
         consecutive_failures: number;
     }[];
     messages: MessageSummary[];
+    recipients?: Record<string, number>;
 };
 
 type Crm = {
@@ -236,6 +237,24 @@ export default function Resilience({
                                         {destinationLabels[
                                             circuit.destination
                                         ] ?? circuit.destination}
+                                        {delivery.recipients?.[
+                                            circuit.destination
+                                        ] !== undefined && (
+                                            <span className="text-muted-foreground ml-1.5 text-xs">
+                                                (
+                                                {
+                                                    delivery.recipients[
+                                                        circuit.destination
+                                                    ]
+                                                }{' '}
+                                                {delivery.recipients[
+                                                    circuit.destination
+                                                ] === 1
+                                                    ? 'conectado'
+                                                    : 'conectados'}
+                                                )
+                                            </span>
+                                        )}
                                     </span>
                                     <span className="flex items-center gap-2">
                                         <span className="text-muted-foreground text-xs tabular-nums">
@@ -257,6 +276,16 @@ export default function Resilience({
                                 </div>
                             ))}
                         </div>
+
+                        {delivery.recipients?.team === 0 && (
+                            <div
+                                data-test="zero-recipients-warning"
+                                className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200"
+                            >
+                                Sin destinatarios conectados: nadie recibirá los
+                                avisos del equipo.
+                            </div>
+                        )}
                     </Card>
 
                     <Card
