@@ -51,3 +51,18 @@ it('keeps a deactivation when saved again', function (ApiClientRepository $repos
 
     expect($repository->searchByKeyHash(new ApiKeyHash(str_repeat('c', 64)))?->isActive())->toBeFalse();
 })->with('api client repositories');
+
+it('finds a saved client by its source', function (ApiClientRepository $repository) {
+    $client = contractApiClient();
+    $expected = $client->toPrimitives();
+
+    $repository->save($client);
+
+    expect($repository->searchBySource(new ApiClientSource('web-form'))?->toPrimitives())->toBe($expected);
+})->with('api client repositories');
+
+it('returns null for a source nobody has', function (ApiClientRepository $repository) {
+    $repository->save(contractApiClient());
+
+    expect($repository->searchBySource(new ApiClientSource('telegram-bot')))->toBeNull();
+})->with('api client repositories');

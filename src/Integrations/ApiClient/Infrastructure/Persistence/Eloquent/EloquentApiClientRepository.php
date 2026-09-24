@@ -6,6 +6,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use Reformas\Integrations\ApiClient\Domain\ApiClient;
 use Reformas\Integrations\ApiClient\Domain\ApiClientRepository;
+use Reformas\Integrations\ApiClient\Domain\ApiClientSource;
 use Reformas\Integrations\ApiClient\Domain\ApiKeyHash;
 
 final class EloquentApiClientRepository implements ApiClientRepository
@@ -19,8 +20,22 @@ final class EloquentApiClientRepository implements ApiClientRepository
 
     public function searchByKeyHash(ApiKeyHash $hash): ?ApiClient
     {
+        /** @var ApiClientModel|null $model */
         $model = ApiClientModel::query()->where('key_hash', $hash->value)->first();
 
+        return $this->toDomain($model);
+    }
+
+    public function searchBySource(ApiClientSource $source): ?ApiClient
+    {
+        /** @var ApiClientModel|null $model */
+        $model = ApiClientModel::query()->where('source', $source->value)->first();
+
+        return $this->toDomain($model);
+    }
+
+    private function toDomain(?ApiClientModel $model): ?ApiClient
+    {
         if ($model === null) {
             return null;
         }

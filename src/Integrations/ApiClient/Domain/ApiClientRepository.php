@@ -7,4 +7,6 @@ interface ApiClientRepository
     public function save(ApiClient $client): void;
 
     public function searchByKeyHash(ApiKeyHash $hash): ?ApiClient;
+
+    public function searchBySource(ApiClientSource $source): ?ApiClient;
 }

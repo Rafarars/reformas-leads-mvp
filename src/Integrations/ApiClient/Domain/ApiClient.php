@@ -21,7 +21,7 @@ final class ApiClient
         private readonly ApiClientId $id,
         private readonly ApiClientName $name,
         private readonly ApiClientSource $source,
-        private readonly ApiKeyHash $keyHash,
+        private ApiKeyHash $keyHash,
         private bool $active,
         private readonly DateTimeImmutable $createdAt,
     ) {}
@@ -44,6 +44,18 @@ final class ApiClient
     public function deactivate(): void
     {
         $this->active = false;
+    }
+
+    // El arranque garantiza el acceso del bot: rotar la clave lo devuelve al servicio si estaba desactivado.
+    public function rotateKey(ApiKeyHash $hash): void
+    {
+        $this->keyHash = $hash;
+        $this->active = true;
+    }
+
+    public function matchesKeyHash(ApiKeyHash $hash): bool
+    {
+        return $this->keyHash->value === $hash->value;
     }
 
     /**
