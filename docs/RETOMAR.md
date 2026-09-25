@@ -61,8 +61,8 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `4ff6354` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
-| Pruebas                        | Pest 496 · PHPStan nivel 7 sin errores · Playwright 13 (en paralelo, 2 workers, con la IA simulada)                               |
+| Último commit verificado       | `ae52c21` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
+| Pruebas                        | Pest 507 · PHPStan nivel 7 sin errores · Playwright 13 (en paralelo, 2 workers, con la IA simulada)                               |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
 | Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                                   |
@@ -108,10 +108,21 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
       gastan su cuota. Interruptor `GEMINI_BASE_URL` en `docker-compose.yml`
 - [x] **Fase 3 · Pantalla para conectarse** (`4ff6354`): Ajustes → Telegram, con el enlace de un solo
       uso, el estado y el botón de desconectar, más `POST /api/v1/telegram/link` para el bot
-- [ ] **Fase 4 · n8n** (la hace Rafael a mano): flujo con `Telegram Trigger` que escuche `/start`,
-      `chatId` por expresión en vez de fijo, y **responder 422** cuando Telegram diga que el chat no
-      existe o que bloquearon al bot. Hasta que esté, **nada de esto se publica**: sin nadie vinculado
-      no se crea ningún aviso de equipo y Rafael se quedaría sin Telegram
+- [x] **La clave del bot se crea sola al arrancar** (`ae52c21`): `app:api-client:ensure-bot` desde
+      `BOT_API_KEY`, porque el plan gratuito de Render no da consola para crearla a mano
+- [ ] **Fase 4 · n8n** (la hace Rafael a mano). Por orden:
+    1. Generar la clave: `echo "rl_$(openssl rand -hex 32)"`, y ponerla en Render (`BOT_API_KEY`) y en
+       el `.env` local
+    2. Flujo nuevo: `Telegram Trigger` (_message_) → filtro de los que empiezan por `/start ` →
+       `HTTP Request` a `POST /api/v1/telegram/link` con `Authorization: Bearer <clave>` y cuerpo
+       `{token, chat_id}` → responder "Listo, ya recibirás los avisos"
+    3. En el flujo de avisos, el `chatId` fijo pasa a la expresión `{{ $json.body.data.chat_id }}`
+    4. El nodo de Telegram con _Continue (using error output)_: si el error dice _bot was blocked_ o
+       _chat not found_, responder **422** (el `Webhook` debe estar en _Respond: Using Respond to
+       Webhook node_); cualquier otro error sigue fallando y se reintenta
+    5. Exportar los dos flujos a `n8n/workflows/` sin secretos y con el `chat_id` sustituido
+- [ ] **Publicar**, y solo entonces. Hasta que la Fase 4 esté probada, **nada de esto se publica**: sin
+      nadie vinculado no se crea ningún aviso de equipo y Rafael se quedaría sin Telegram
 
 - [x] **Paso 7 · Avisos con n8n** (guía en `docs/N8N.md`, historia en `docs/BITACORA.md`)
     - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`)

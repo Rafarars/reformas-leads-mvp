@@ -64,9 +64,15 @@ algún otro.
 | `ADMIN_EMAIL` y `ADMIN_PASSWORD`              | Tu cuenta del panel: se crea al arrancar (`app:admin:ensure`). Sin ellas no hay usuario |
 | `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` | `https://<n8n en Render>/webhook/reformas-events`                                       |
 | `DELIVERY_CRM_URL`                            | Sin CRM desplegado, cualquier URL que falle sirve: demuestra los reintentos             |
+| `TELEGRAM_BOT_USERNAME`                       | El nombre del bot, sin la arroba. Sin él, la pantalla de Ajustes no pinta el enlace     |
+| `BOT_API_KEY`                                 | `echo "rl_$(openssl rand -hex 32)"`. La misma clave va en la credencial de n8n          |
 
 `start.sh` ejecuta `app:check-config` y las migraciones antes de servir tráfico: con la configuración a
-medias, el servicio no arranca.
+medias, el servicio no arranca. Después, dos comandos idempotentes: `app:admin:ensure` crea al
+administrador, y `app:api-client:ensure-bot` deja lista la clave con la que el bot llama a
+`POST /api/v1/telegram/link`. Esto último existe porque **el plan gratuito de Render no da consola**: sin
+ello no habría forma de crear esa clave en producción. Si `BOT_API_KEY` no está puesta, no falla el
+arranque: lo dice y sigue.
 
 **Tropiezos del primer despliegue:** `frankenphp: Operation not permitted`. El binario trae la capability
 `cap_net_bind_service` (para escuchar en el 443) y el entorno aislado de Render no deja ejecutar
