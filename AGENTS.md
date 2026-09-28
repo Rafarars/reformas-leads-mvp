@@ -123,6 +123,7 @@ encadenan dentro del propio script.
 | `docs/DEPLOY-BITACORA.md` | Historia del despliegue: alternativas descartadas, tropiezos y el estado exacto |
 | `docs/PLAN.md`            | Plan ejecutable del tramo en curso: qué, por qué y cómo se comprueba            |
 | `docs/FUTURE.md`          | Mejoras diferidas, con su porqué                                                |
+| `docs/SEGURIDAD.md`       | Hallazgos de la auditoría de seguridad, verificados y aún sin corregir          |
 | `docs/RETOMAR.md`         | Estado actual y checklist de lo que falta                                       |
 | `README.md`               | Portada del portafolio                                                          |
 
