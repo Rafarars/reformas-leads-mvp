@@ -1,6 +1,7 @@
 # Seguridad: hallazgos pendientes
 
-Resultado de la primera auditoría de seguridad del proyecto (28-sep-2026, commit `491f133`). Aquí
+Resultado de las auditorías de seguridad del proyecto (28-sep-2026: una `quick` sobre `491f133` y una
+`standard` sobre `43fdf9c`, que no encontró hallazgos nuevos). Aquí
 solo se **registran**: ninguno está corregido todavía. Cada hallazgo se comprobó leyendo el código;
 donde la auditoría se equivocó o exageró, se dice.
 
@@ -11,8 +12,9 @@ donde la auditoría se equivocó o exageró, se dice.
   [`cloudflare/security-audit-skill`](https://github.com/cloudflare/security-audit-skill), perfil
   `quick`: reconocimiento, búsqueda por unidades de cobertura y un verificador independiente por
   hallazgo. Todo lo que ejecutó código corrió en un contenedor sin red y sin el `.env`.
-- Una sola pasada `quick` **no cubre todo**: el propio método estima que una corrida encuentra
-  alrededor de la mitad de lo que encuentran varias.
+- La segunda corrida revisó además 2FA y sesiones, asignación masiva, la vinculación de Telegram e
+  inyección de instrucciones en Gemini: sin hallazgos. Eso no prueba que no haya más; el propio
+  método estima que una corrida encuentra alrededor de la mitad de lo que encuentran varias.
 
 ## Confirmados
 
@@ -59,6 +61,36 @@ donde la auditoría se equivocó o exageró, se dice.
 - **Webhook de n8n sin autenticación.** Riesgo conocido (`docs/FUTURE.md`, "Header Auth"). Faltan las
   dos partes: el nodo Webhook de `n8n/workflows/reformas-avisos.json` y la cabecera desde Laravel
   (`src/Delivery`). El nodo de Gmail envía al email que llega en la petición.
+
+## Privacidad y cumplimiento
+
+De la segunda auditoría (28-sep-2026, perfil `standard`, commit `43fdf9c`). No son vulnerabilidades
+sino lo que haría falta para tratar **datos reales**; si una ley aplica depende del mercado. Para
+clientes en España: RGPD, LOPDGDD y LSSI-CE. Nada está corregido todavía.
+
+- **Datos de más hacia n8n.** Los eventos `lead.classified` y `lead.customer_message_approved`
+  envían nombre, email y teléfono (`src/Leads/Classification/Domain/LeadContact.php:19`), aunque
+  el aviso de Telegram no usa el email y el correo de Gmail no usa el teléfono.
+- **No se pueden borrar los datos de un lead.** No hay caso de uso, comando ni pantalla; el único
+  borrado (`PurgeTestLeads`) es para datos de prueba. Al añadirlo, borrar también los adjuntos del
+  almacenamiento y los mensajes del outbox (`outbox_messages.aggregate_id` no tiene clave foránea).
+- **El outbox guarda datos personales para siempre.** Los mensajes entregados conservan el
+  `payload` completo; falta una purga programada (igual que las claves de idempotencia,
+  `docs/FUTURE.md`).
+- **No hay forma de exportar** los datos de una persona.
+- **Faltan las páginas legales:** política de privacidad, aviso legal con los datos del negocio y
+  política de cookies (las cookies actuales son técnicas, pero se informan igual).
+- **Falta el aviso de protección de datos** en el formulario de Recepción.
+- **Gemini en el tier gratuito** puede usar lo que recibe: con datos reales hace falta la API de
+  pago con acuerdo de tratamiento (ya estaba la regla de solo datos ficticios en `docs/spec.md`).
+  La descripción del lead va entera a Gemini y puede contener datos personales que escribió la
+  persona.
+- **Los datos viven en EE. UU.:** Render en `region: oregon` (`render.yaml`) y Supabase en
+  `us-west-2`. Con clientes en la UE, es una transferencia internacional; Telegram también procesa
+  fuera de la UE.
+
+Discutible: la auditoría pide avisar de que el borrador del correo lo redactó una IA (AI Act,
+art. 50). Como una persona lo revisa y aprueba antes de enviarlo, no es claro que aplique.
 
 ## Revisado y sin problema
 
