@@ -1,37 +1,56 @@
 # Flujos de n8n
 
-`reformas-avisos.json` es el flujo que reparte los avisos del outbox:
+`reformas-avisos.json` reparte los avisos del outbox. Laravel manda **un aviso por persona conectada**,
+con su `chat_id` dentro del cuerpo:
 
 ```
-POST /webhook/reformas-events ─► Switch (body.event) ─┬─ lead.classified ────────────────► Telegram
-                                                      ├─ lead.customer_message_approved ─► Gmail
-                                                      └─ cualquier otro ─────────────────► Stop and Error
+POST /webhook/reformas-events ─► Switch (body.event) ─┬─ lead.classified ───────────────► Telegram ─┬─ bien ──► 200
+                                                      │                                            └─ error ─► ¿bot bloqueado? ─ sí ─► 422
+                                                      │                                                                     └ no ─► 500
+                                                      ├─ lead.customer_message_approved ─► Gmail ─────► 200
+                                                      └─ cualquier otro ─────────────────► Stop and Error (500)
 ```
 
-## Qué guarda y qué no
+El **422** es lo que Laravel entiende como fallo permanente: aparta ese aviso sin contarlo para el
+circuito, así una persona que bloqueó el bot no deja sin avisos al resto. Cualquier otro error devuelve
+500 y se reintenta (ver `docs/ARCHITECTURE.md`, "Outbox y entrega").
 
-Guarda los nodos, sus expresiones y **el nombre** de las credenciales. **No guarda ningún secreto**: el
-token del bot y el OAuth de Gmail viven cifrados dentro de n8n. El `chat_id` de Telegram está sustituido
-por `REEMPLAZAR_POR_TU_TELEGRAM_CHAT_ID`.
+`reformas-vincular-telegram.json` atiende a quien escribe al bot:
+
+```
+Telegram Trigger ─► ¿/start con enlace? ─┬─ sí ─► POST /api/v1/telegram/link ─► ¿200? ─┬─ sí ─► "Listo"
+                                         │                                              └─ no ─► el motivo que da la app
+                                         └─ no ─► "Entra en Ajustes → Telegram y pulsa Conectar"
+```
+
+## Qué guardan y qué no
+
+Guardan los nodos, sus expresiones y **el nombre** de las credenciales. **Ningún secreto**: el token del
+bot, el OAuth de Gmail y la clave del bot (`BOT_API_KEY`) viven cifrados dentro de n8n. Tampoco llevan
+`chat_id`, porque ya no hay ninguno fijo.
+
+Al exportar se quitan además `id`, `versionId`, `instanceId`, los identificadores internos de las
+credenciales y los `webhookId`. El del `Telegram Trigger` es parte de la URL a la que Telegram entrega
+los mensajes: publicado, cualquiera podría enviarle actualizaciones falsas. Al importar, n8n los genera
+de nuevo.
 
 ## Importar en una instalación limpia
 
 ```bash
 docker cp n8n/workflows/reformas-avisos.json reformas-n8n:/tmp/avisos.json
 docker exec reformas-n8n n8n import:workflow --input=/tmp/avisos.json
+docker cp n8n/workflows/reformas-vincular-telegram.json reformas-n8n:/tmp/vincular.json
+docker exec reformas-n8n n8n import:workflow --input=/tmp/vincular.json
 ```
 
 Después, dentro de n8n:
 
-1. Crear las credenciales **Gmail OAuth2** y **Telegram** (ver `docs/N8N.md`) y seleccionarlas en sus nodos.
-2. Poner el `chat_id` real en el nodo de Telegram.
-3. **Publicar** el flujo: la URL `/webhook/...` solo responde con el flujo publicado.
+1. Crear las credenciales **Gmail OAuth2**, **Telegram** y **Header Auth** "Reformas · API bot"
+   (`Authorization: Bearer <BOT_API_KEY>`), y seleccionarlas en sus nodos. Ver `docs/N8N.md`.
+2. **Publicar** los dos flujos. El `Telegram Trigger` necesita que n8n tenga `WEBHOOK_URL` con una URL
+   **HTTPS** pública: al publicar, le dice a Telegram adónde mandar los mensajes.
 
 ## Volver a exportar tras un cambio
 
-```bash
-docker exec reformas-n8n n8n export:workflow --id=<ID> --output=/tmp/avisos.json
-docker cp reformas-n8n:/tmp/avisos.json ./n8n/workflows/reformas-avisos.json
-```
-
-Revisar el resultado antes de commitear: no debe contener tokens ni el `chat_id`.
+Desde el editor, **Download**, y limpiar los metadatos anteriores antes de commitear. Revisar que no
+contenga tokens, claves ni `chat_id`.
