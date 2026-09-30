@@ -280,10 +280,19 @@ docker run --rm -p 127.0.0.1:5680:5680 \
   -e DB_POSTGRESDB_SCHEMA=n8n -e DB_POSTGRESDB_SSL_ENABLED=true -e DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED=false \
   -e N8N_ENCRYPTION_KEY="$RENDER_N8N_ENCRYPTION_KEY" -e N8N_PORT=5680 \
   -e WEBHOOK_URL=https://reformas-n8n.onrender.com/ \
+  -e N8N_EDITOR_BASE_URL=http://localhost:5680/ \
   n8nio/n8n:2.38.7
 ```
 
-Editor en `http://localhost:5680`.
+Editor en `http://localhost:5680`. Las dos URLs hacen falta y hacen cosas distintas:
+
+- `WEBHOOK_URL` es la que n8n le da a **Telegram** al activar el `Telegram Trigger`. Tiene que ser la
+  de Render: Telegram exige HTTPS y no llega a una máquina local.
+- `N8N_EDITOR_BASE_URL` es la vuelta del **inicio de sesión con Google** (OAuth de Gmail). Tiene que ser
+  la local: el proceso lo empieza este n8n, que es donde hay sesión. Sin ella, Google devuelve al de
+  Render, que no empezó el proceso y lo rechaza con _"The OAuth callback state is invalid"_. Esa URL
+  (`http://localhost:5680/rest/oauth2-credential/callback`) debe estar en **URIs de redireccionamiento
+  autorizados** del cliente OAuth en Google Cloud, o Google responde `redirect_uri_mismatch`.
 
 ### 9.3 Los cambios
 
@@ -333,6 +342,20 @@ Editor en `http://localhost:5680`.
 
 **Cuidado con la demo de resiliencia en producción:** con el aviso repartido por persona, "Inyectar leads"
 manda un Telegram por lead a cada persona conectada (ver `docs/SEGURIDAD.md`, hallazgo 3).
+
+### 9.5 Si el correo deja de salir: el permiso de Gmail caducó
+
+Síntoma: el aviso `customer` se queda en `pending` con **HTTP 500** una y otra vez, y el Telegram sí sale.
+Sin editor en Render, el error se lee en la base, en `n8n.execution_data` de la última ejecución fallida:
+_"could not be refreshed because… the refresh token expired"_.
+
+Causa: si la app de Google Cloud está en modo **Testing**, Google da permisos que **caducan a los 7
+días**. Pasó el 30-sep-2026, nueve días después de conectar Gmail en producción.
+
+Arreglo: en Google Cloud, pantalla de consentimiento (_Audience_) → **Publish app**; después, desde el n8n
+local de 9.2, abrir la credencial **Gmail account** y reconectar (_Sign in with Google_). No hace falta
+volver a aprobar el borrador: el outbox lo reintenta solo y sale en cuanto la credencial funciona. Ese
+día salió en el intento 239, casi 15 horas después, sin perderse.
 
 ## 10. Pendiente
 
