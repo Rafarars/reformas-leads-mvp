@@ -61,7 +61,7 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `ae52c21` (`main`), CI en verde. Publicado en `production`: `d8abb09`                                                             |
+| Último commit verificado       | `ae52c21` (`main`), CI en verde. Publicado en `production`: `1d711e0`                                                             |
 | Pruebas                        | Pest 507 · PHPStan nivel 7 sin errores · Playwright 13 (en paralelo, 2 workers, con la IA simulada)                               |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
@@ -122,8 +122,10 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
        _chat not found_, responder **422** (el `Webhook` debe estar en _Respond: Using Respond to
        Webhook node_); cualquier otro error sigue fallando y se reintenta
     5. Exportar los dos flujos a `n8n/workflows/` sin secretos y con el `chat_id` sustituido
-- [ ] **Publicar**, y solo entonces. Hasta que la Fase 4 esté probada, **nada de esto se publica**: sin
-      nadie vinculado no se crea ningún aviso de equipo y Rafael se quedaría sin Telegram
+- [x] **Publicado** `1d711e0` (30-sep-2026). Comprobado desde fuera: Ajustes → Telegram existe, el
+      endpoint rechaza sin clave (401) y con `BOT_API_KEY` responde "token no encontrado" (404), así que
+      la migración corrió y la clave del bot se creó al arrancar. **Desde aquí no salen avisos de equipo
+      hasta que alguien se conecte**
 
 - [x] **Paso 7 · Avisos con n8n** (guía en `docs/N8N.md`, historia en `docs/BITACORA.md`)
     - [x] Outbox con **un mensaje y un circuit breaker por destino** (`crm`, `team`, `customer`)
