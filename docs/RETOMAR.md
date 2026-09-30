@@ -110,7 +110,8 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
       uso, el estado y el botón de desconectar, más `POST /api/v1/telegram/link` para el bot
 - [x] **La clave del bot se crea sola al arrancar** (`ae52c21`): `app:api-client:ensure-bot` desde
       `BOT_API_KEY`, porque el plan gratuito de Render no da consola para crearla a mano
-- [ ] **Fase 4 · n8n** (la hace Rafael a mano). Por orden:
+- [ ] **Fase 4 · n8n** (la hace Rafael a mano). Guía completa, con las trampas, en
+      [`N8N.md`](N8N.md) §9. Por orden:
     1. Generar la clave: `echo "rl_$(openssl rand -hex 32)"`, y ponerla en Render (`BOT_API_KEY`) y en
        el `.env` local
     2. Flujo nuevo: `Telegram Trigger` (_message_) → filtro de los que empiezan por `/start ` →

@@ -249,7 +249,92 @@ en el CI no ocurre porque n8n no tiene flujos.
 Para ver qué pasó en cada aviso: pestaña **Executions** del flujo. Muestra por qué rama fue y qué
 respondió cada nodo.
 
-## 9. Pendiente
+## 9. Avisos de Telegram por usuario (Fase 4)
+
+Hasta aquí el aviso iba a un `chatId` fijo. Desde la Fase 2, Laravel manda **un aviso por persona
+conectada**, con su `chat_id` dentro del cuerpo, y la gente se conecta desde Ajustes → Telegram. Esta
+sección es lo que falta del lado de n8n. Se hace **después de publicar**: el endpoint al que llama el
+bot solo existe en producción a partir de ese momento.
+
+### 9.1 Antes de empezar
+
+- Clave del bot: `echo "rl_$(openssl rand -hex 32)"`. Va en Render (`reformas-leads` → `BOT_API_KEY`),
+  en el `.env` local y en la credencial de n8n del paso 9.3. Nunca en un chat.
+- `TELEGRAM_BOT_USERNAME=leads_reformas_mvp_bot` en Render (`reformas-leads`).
+- `WEBHOOK_URL=https://reformas-n8n.onrender.com/` en Render (`reformas-n8n`), con la barra final. Es la
+  URL que n8n le da a Telegram para que le mande los `/start`.
+
+### 9.2 n8n local contra la base de Supabase
+
+El de Render no sirve el editor. Se edita desde local, contra la misma base, y **con `WEBHOOK_URL`
+apuntando a Render**: al activar el `Telegram Trigger`, n8n le dice a Telegram adónde mandar los mensajes,
+y con la URL por defecto le daría `localhost`, que Telegram rechaza (exige HTTPS y no llega a tu máquina).
+
+```bash
+cd ~/dev/reformas-leads-mvp
+set -a; . <(grep -E '^(DB_POSTGRESDB_(HOST|PORT|DATABASE|USER)|SUPABASE_DB_PASSWORD|RENDER_N8N_ENCRYPTION_KEY)=' .env); set +a
+docker run --rm -p 127.0.0.1:5680:5680 \
+  -e DB_TYPE=postgresdb \
+  -e DB_POSTGRESDB_HOST -e DB_POSTGRESDB_PORT -e DB_POSTGRESDB_DATABASE -e DB_POSTGRESDB_USER \
+  -e DB_POSTGRESDB_PASSWORD="$SUPABASE_DB_PASSWORD" \
+  -e DB_POSTGRESDB_SCHEMA=n8n -e DB_POSTGRESDB_SSL_ENABLED=true -e DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED=false \
+  -e N8N_ENCRYPTION_KEY="$RENDER_N8N_ENCRYPTION_KEY" -e N8N_PORT=5680 \
+  -e WEBHOOK_URL=https://reformas-n8n.onrender.com/ \
+  n8nio/n8n:2.38.7
+```
+
+Editor en `http://localhost:5680`.
+
+### 9.3 Los cambios
+
+1. **Credencial** _Header Auth_ "Reformas · API bot": nombre `Authorization`, valor `Bearer <clave>`.
+   Como credencial queda cifrada en la base y no sale al exportar el flujo.
+2. **Flujo nuevo "Reformas · Vincular Telegram":**
+    - `Telegram Trigger`, actualizaciones _message_, con la credencial del bot que ya existe.
+    - `IF`: `{{ $json.message.text }}` _starts with_ `/start ` (con espacio).
+        - Falso → Telegram a `{{ $json.message.chat.id }}`: "Para recibir avisos, entra en el panel →
+          Ajustes → Telegram y pulsa Conectar." Es lo que ve quien encuentra el bot por su cuenta.
+    - Verdadero → `HTTP Request`: `POST https://reformas-leads.onrender.com/api/v1/telegram/link`,
+      autenticación _Generic → Header Auth_ con la credencial anterior, cuerpo JSON
+      `{"token": "{{ $json.message.text.split(' ')[1] }}", "chat_id": "{{ $json.message.chat.id }}"}`.
+      En _Options_: _Include Response Headers and Status_ y _Never Error_, para poder ramificar por el
+      código en vez de que el flujo se pare.
+    - `IF` `{{ $json.statusCode }}` igual a `200`:
+        - Sí → Telegram: "Listo: a partir de ahora recibirás aquí los avisos de leads."
+        - No → Telegram con `{{ $json.body.message }}`. La API ya devuelve el motivo en español ("El
+          enlace ha caducado", "Esta cuenta de Telegram ya está vinculada a otro usuario"…).
+    - Los nodos de respuesta usan `chatId` = `{{ $('Telegram Trigger').item.json.message.chat.id }}`.
+3. **Flujo de avisos:** el `chatId` del nodo de Telegram pasa de fijo a `{{ $json.body.data.chat_id }}`.
+4. **El 422 del bot bloqueado.** Es lo que evita que una persona que bloqueó el bot deje sin avisos a
+   todo el equipo (Laravel lo aparta sin abrir el circuito, ver `docs/ARCHITECTURE.md`):
+    - `Webhook` → _Respond_: _Using 'Respond to Webhook' Node_.
+    - Tras el Telegram y tras el Gmail que salen bien, un _Respond to Webhook_ con 200.
+    - En el nodo de Telegram, _Settings → On Error → Continue (using error output)_. Por esa salida, un
+      `IF` sobre el mensaje de error: si contiene `blocked` o `chat not found` → _Respond to Webhook_ con
+      **422**; si no, al `Stop and Error` de siempre, que da 500 y se reintenta.
+5. **Activar** los dos flujos. **No pulsar _Listen for test event_ en el `Telegram Trigger`**: Telegram
+   admite un solo webhook por bot y la escucha de prueba lo cambia a la URL de pruebas, así que el de
+   producción deja de recibir hasta volver a activar el flujo.
+6. **Exportar** los dos flujos (_Download_) a `n8n/workflows/`. Ya no llevan `chat_id` fijo ni claves.
+
+### 9.4 Cerrar y comprobar
+
+1. Parar el contenedor local (`Ctrl+C`).
+2. Render → `reformas-n8n` → reiniciar el servicio. Dos n8n contra la misma base no se sincronizan: al
+   arrancar, el de Render carga los flujos activos y le registra a Telegram **su** URL.
+3. Comprobar que Telegram apunta a Render (el token se lee del `.env` y no se imprime):
+    ```bash
+    curl -s "https://api.telegram.org/bot$(grep '^TELEGRAM_BOT_TOKEN=' .env | cut -d= -f2)/getWebhookInfo"
+    ```
+    `url` debe empezar por `https://reformas-n8n.onrender.com/` y `last_error_message` no debe existir.
+4. Panel → Ajustes → Telegram → **Conectar** → abrir el enlace → **Start**. Debe llegar "Listo" y la
+   pantalla pasar sola a "Conectado desde…". Si n8n dormía, tarda hasta un minuto.
+5. Resiliencia: "Equipo (1 conectado)", sin el aviso amarillo. Registrar un lead: llega el Telegram.
+
+**Cuidado con la demo de resiliencia en producción:** con el aviso repartido por persona, "Inyectar leads"
+manda un Telegram por lead a cada persona conectada (ver `docs/SEGURIDAD.md`, hallazgo 3).
+
+## 10. Pendiente
 
 - Revocar el token del bot antiguo (`/mybots` → bot → **API Token** → _Revoke_).
 - Nodo de IA en n8n para algo no crítico, con un modelo gratuito (ver `docs/FUTURE.md`).
