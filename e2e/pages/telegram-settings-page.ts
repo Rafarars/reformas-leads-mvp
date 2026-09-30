@@ -8,6 +8,7 @@ export class TelegramSettingsPage {
     readonly linkExpiry: Locator;
     readonly connectedSince: Locator;
     readonly disconnectButton: Locator;
+    readonly telegramBanner: Locator;
 
     constructor(private readonly page: Page) {
         this.connectButton = this.page.getByTestId('connect-button');
@@ -16,6 +17,7 @@ export class TelegramSettingsPage {
         this.linkExpiry = this.page.getByTestId('link-expiry');
         this.connectedSince = this.page.getByTestId('connected-since');
         this.disconnectButton = this.page.getByTestId('disconnect-button');
+        this.telegramBanner = this.page.getByTestId('telegram-banner');
     }
 
     async goto(): Promise<void> {

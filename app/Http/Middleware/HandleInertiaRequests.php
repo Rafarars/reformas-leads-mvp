@@ -4,9 +4,14 @@ namespace App\Http\Middleware;
 
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Reformas\Notifications\TelegramLink\Domain\TelegramLinkRepository;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(
+        private readonly TelegramLinkRepository $telegramLinks,
+    ) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -41,6 +46,11 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $request->user(),
             ],
+            // Closure perezosa: solo se evalúa en cargas completas o cuando la recarga parcial la pide.
+            // Los sondeos periódicos de Clasificación y Resiliencia no hacen consulta extra a la base.
+            'telegramLinked' => fn () => $request->user() !== null
+                ? ($this->telegramLinks->searchByUserId((int) $request->user()->id)?->isLinked() ?? false)
+                : null,
             'flash' => [
                 'receptionResult' => fn () => $request->session()->get('receptionResult'),
             ],
