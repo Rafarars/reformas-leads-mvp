@@ -128,13 +128,6 @@ de n8n se pierde por el camino, el reintento lo vuelve a enviar. Es raro y, para
 **Qué haría falta:** un nodo que guarde la clave (Redis o una tabla) antes de enviar y corte el flujo si ya
 existe. Para el correo al cliente pesa más que para Telegram.
 
-## Autenticar el CRM simulado
-
-**Qué:** proteger `/control` del simulador.
-
-**Por qué no ahora:** solo escucha en `127.0.0.1` y en la red del compose, y no existe fuera de
-desarrollo. Si alguna vez se despliega una demo pública, sus controles no pueden quedar abiertos.
-
 ## Evaluar la clasificación con un conjunto fijo
 
 **Qué:** una batería de leads ficticios con la clasificación esperada, corrida a mano contra el

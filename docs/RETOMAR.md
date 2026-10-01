@@ -61,8 +61,8 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 |                                |                                                                                                                                   |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
 | Repositorio                    | github.com/Rafarars/reformas-leads-mvp (privado)                                                                                  |
-| Último commit verificado       | `2adb397` (`main`), CI en verde. Publicado en `production`: `2adb397`                                                             |
-| Pruebas                        | Pest 511 · PHPStan nivel 7 sin errores · Playwright 14 (en paralelo, 2 workers, con la IA simulada)                               |
+| Último commit verificado       | `7186d73` (`main`), CI en verde. Publicado en `production`: `7186d73`                                                             |
+| Pruebas                        | Pest 521 · PHPStan nivel 7 sin errores · Playwright 14 (en paralelo, 2 workers, con la IA simulada)                               |
 | Servicios                      | app, queue, scheduler, db, n8n, fake-crm (todos _healthy_)                                                                        |
 | URLs locales                   | app `127.0.0.1:8010` · n8n `localhost:5678` · CRM simulado `127.0.0.1:8080/control`                                               |
 | Usuario de prueba (solo local) | `test@example.com` / `password`                                                                                                   |
@@ -113,9 +113,9 @@ silencioso y las pruebas E2E corren en paralelo sin depender del estado de la ba
 - [x] **Aviso para conectar Telegram** (`2adb397`, publicado): banda en todo el panel mientras el
       usuario no tenga su Telegram vinculado; desaparece sola al vincularse. El dato es una prop
       compartida perezosa, así que los sondeos cada 3 s no hacen consultas de más
-- [ ] **CRM simulado en producción**: desplegarlo en Render como tercer servicio, con los controles
-      protegidos por token (`docs/FUTURE.md`, "Autenticar el CRM simulado"). Hoy cada lead deja un
-      aviso al CRM que falla con 404 y los botones de Resiliencia no funcionan en producción
+- [x] **CRM simulado listo para producción** (`7186d73`, publicado): tercer servicio en el blueprint,
+      con `/control` y `/deliveries` protegidos por `FAKE_CRM_TOKEN` (el simulador no arranca sin él).
+      **Falta que Rafael ponga las variables en Render** (`docs/DEPLOY.md` §2 bis)
 - [x] **Fase 4 · n8n** (hecha por Rafael el 30-sep-2026). Guía completa, con las trampas, en
       [`N8N.md`](N8N.md) §9. Por orden:
     1. Generar la clave: `echo "rl_$(openssl rand -hex 32)"`, y ponerla en Render (`BOT_API_KEY`) y en

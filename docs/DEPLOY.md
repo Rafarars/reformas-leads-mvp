@@ -63,9 +63,10 @@ algún otro.
 | `GEMINI_API_KEY`                              | Google AI Studio                                                                        |
 | `ADMIN_EMAIL` y `ADMIN_PASSWORD`              | Tu cuenta del panel: se crea al arrancar (`app:admin:ensure`). Sin ellas no hay usuario |
 | `DELIVERY_TEAM_URL` y `DELIVERY_CUSTOMER_URL` | `https://<n8n en Render>/webhook/reformas-events`                                       |
-| `DELIVERY_CRM_URL`                            | Sin CRM desplegado, cualquier URL que falle sirve: demuestra los reintentos             |
+| `DELIVERY_CRM_URL`                            | La URL del CRM simulado (`reformas-fake-crm`) más `/webhooks/leads`                     |
 | `TELEGRAM_BOT_USERNAME`                       | El nombre del bot, sin la arroba. Sin él, la pantalla de Ajustes no pinta el enlace     |
 | `BOT_API_KEY`                                 | `echo "rl_$(openssl rand -hex 32)"`. La misma clave va en la credencial de n8n          |
+| `FAKE_CRM_URL` y `FAKE_CRM_TOKEN`             | La URL de `reformas-fake-crm` y su token (`openssl rand -hex 32`), el mismo en los dos  |
 
 `start.sh` ejecuta `app:check-config` y las migraciones antes de servir tráfico: con la configuración a
 medias, el servicio no arranca. Después, dos comandos idempotentes: `app:admin:ensure` crea al
@@ -98,6 +99,24 @@ falta: el puerto es alto.
 4. **Página en blanco tras desplegar:** Render termina el TLS y reenvía por `http`, así que Laravel
    generaba las URLs de los assets con `http` y el navegador las bloqueaba por contenido mixto. Arreglo:
    `trustProxies(at: '*')` en `bootstrap/app.php`.
+
+## 2 bis. Render: el CRM simulado
+
+La demo de resiliencia necesita un CRM al que se le pueda **tumbar y levantar** desde el panel. En local
+es el contenedor `fake-crm`; en producción, el servicio `reformas-fake-crm` del mismo blueprint: un solo
+archivo de Node sin dependencias (`rootDir: docker/fake-crm`, para que Render no instale el frontend ni
+lo redespliegue con cada commit).
+
+1. Generar un token: `openssl rand -hex 32`.
+2. `reformas-fake-crm` → `FAKE_CRM_TOKEN` = ese token. **Sin él no arranca**, a propósito: expone los
+   controles y la lista de leads recibidos, y no puede quedar abierto en internet.
+3. `reformas-leads` → `FAKE_CRM_TOKEN` (el mismo), `FAKE_CRM_URL` (la URL del servicio) y
+   `DELIVERY_CRM_URL` (esa URL más `/webhooks/leads`).
+
+Solo `/health` y `/webhooks/leads` responden sin token. Si `FAKE_CRM_URL` está puesta y falta el token,
+la app no arranca (`app:check-config`); si no está puesta, el panel muestra el CRM como inalcanzable y
+todo lo demás funciona. Duerme como los otros servicios: el primer aviso tras despertarlo puede fallar y
+se reintenta, que es justo lo que la demo enseña.
 
 ## 3. Render: n8n
 
