@@ -2,6 +2,9 @@
 export const fakeCrmURL =
     process.env.E2E_FAKE_CRM_URL ?? 'http://127.0.0.1:8080';
 
+export const fakeCrmToken =
+    process.env.FAKE_CRM_TOKEN ?? 'fake-local-crm-token';
+
 export type FakeCrmControl = {
     outage: boolean;
     rejected: number;
@@ -17,7 +20,15 @@ export type FakeCrmDelivery = {
 };
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${fakeCrmURL}${path}`, init);
+    const headers = new Headers(init?.headers);
+    if (!headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${fakeCrmToken}`);
+    }
+
+    const response = await fetch(`${fakeCrmURL}${path}`, {
+        ...init,
+        headers,
+    });
 
     if (!response.ok) {
         throw new Error(`fake-crm ${path} respondió ${response.status}`);

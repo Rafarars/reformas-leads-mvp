@@ -20,7 +20,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(FakeCrmClient::class, fn (): FakeCrmClient => new FakeCrmClient(config()->string('services.fake_crm.url')));
+        $this->app->bind(FakeCrmClient::class, fn (): FakeCrmClient => new FakeCrmClient(
+            is_string($url = config('services.fake_crm.url')) && $url !== '' ? $url : null,
+            is_string($token = config('services.fake_crm.token')) && $token !== '' ? $token : null,
+        ));
     }
 
     /**

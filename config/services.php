@@ -48,7 +48,8 @@ return [
 
     // API externa simulada con interruptor de caída (docker/fake-crm), solo para la demo de resiliencia.
     'fake_crm' => [
-        'url' => env('FAKE_CRM_URL', 'http://127.0.0.1:8080'),
+        'url' => env('FAKE_CRM_URL'),
+        'token' => env('FAKE_CRM_TOKEN'),
     ],
 
     // Fotos y planos de cada lead. Disco privado: se sirven por una ruta con sesión, no por URL pública.

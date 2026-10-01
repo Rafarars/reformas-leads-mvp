@@ -78,6 +78,19 @@ it('still shows the panel when the simulated CRM does not answer', function () {
         ->assertInertia(fn (Assert $page) => $page->where('crm', null));
 });
 
+it('shows the CRM as unreachable and makes no requests when the simulated CRM url is not configured', function () {
+    config(['services.fake_crm.url' => null]);
+
+    $this->actingAs($this->user)
+        ->get(route('resilience'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('resilience/index')
+            ->where('crm', null));
+
+    Http::assertNothingSent();
+});
+
 it('switches the simulated outage on', function () {
     Http::fake(['crm.test/control/outage' => Http::response(['outage' => true])]);
 

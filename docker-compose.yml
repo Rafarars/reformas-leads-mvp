@@ -25,6 +25,7 @@ x-app-env: &app-env
     DELIVERY_TEAM_URL: http://n8n:5678/webhook/reformas-events
     DELIVERY_CUSTOMER_URL: http://n8n:5678/webhook/reformas-events
     FAKE_CRM_URL: http://fake-crm:8080
+    FAKE_CRM_TOKEN: ${FAKE_CRM_TOKEN:-fake-local-crm-token}
     GEMINI_BASE_URL: ${GEMINI_BASE_URL:-http://fake-gemini:8080/v1beta}
 
 services:
@@ -106,6 +107,8 @@ services:
         # API externa simulada con interruptor de caída (docker/fake-crm/server.mjs). Solo para la demo.
         command: ['node', '/srv/server.mjs']
         user: node
+        environment:
+            FAKE_CRM_TOKEN: ${FAKE_CRM_TOKEN:-fake-local-crm-token}
         volumes:
             - ./docker/fake-crm:/srv:ro
         ports:

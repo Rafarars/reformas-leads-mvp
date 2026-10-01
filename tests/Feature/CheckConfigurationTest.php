@@ -12,6 +12,8 @@ function inProduction(array $overrides = []): void
         'services.delivery.destinations.crm.url' => 'https://crm.internal/webhooks/leads',
         'services.delivery.destinations.team.url' => 'https://n8n.internal/webhook/reformas-team',
         'services.delivery.destinations.customer.url' => 'https://n8n.internal/webhook/reformas-customer',
+        'services.fake_crm.url' => null,
+        'services.fake_crm.token' => null,
     ], $overrides));
 }
 
@@ -23,6 +25,17 @@ it('does not require anything outside production', function () {
 
 it('accepts a valid production configuration', function () {
     inProduction();
+
+    $this->artisan('app:check-config')
+        ->expectsOutputToContain('Configuración válida.')
+        ->assertSuccessful();
+});
+
+it('accepts fake crm when both url and token are configured in production', function () {
+    inProduction([
+        'services.fake_crm.url' => 'https://fake-crm.internal',
+        'services.fake_crm.token' => 'un-token-secreto-1234',
+    ]);
 
     $this->artisan('app:check-config')
         ->expectsOutputToContain('Configuración válida.')
@@ -45,4 +58,5 @@ it('refuses to start in production with a broken configuration', function (array
     'crm missing' => [['services.delivery.destinations.crm.url' => null], 'DELIVERY_CRM_URL falta o apunta a localhost.'],
     'team notices on localhost' => [['services.delivery.destinations.team.url' => 'http://localhost:5678/webhook/reformas-team'], 'DELIVERY_TEAM_URL falta o apunta a localhost.'],
     'customer messages missing' => [['services.delivery.destinations.customer.url' => null], 'DELIVERY_CUSTOMER_URL falta o apunta a localhost.'],
+    'fake crm url without token' => [['services.fake_crm.url' => 'https://fake-crm.internal', 'services.fake_crm.token' => null], 'FAKE_CRM_URL está definida pero falta FAKE_CRM_TOKEN.'],
 ]);

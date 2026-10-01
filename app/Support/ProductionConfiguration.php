@@ -46,6 +46,18 @@ class ProductionConfiguration
             }
         }
 
+        $fakeCrmHost = $this->hostOf(config('services.fake_crm.url'));
+
+        if ($fakeCrmHost !== null) {
+            if ($this->isLoopback($fakeCrmHost)) {
+                $problems[] = 'FAKE_CRM_URL apunta a localhost.';
+            }
+
+            if (blank(config('services.fake_crm.token'))) {
+                $problems[] = 'FAKE_CRM_URL está definida pero falta FAKE_CRM_TOKEN.';
+            }
+        }
+
         return $problems;
     }
 
